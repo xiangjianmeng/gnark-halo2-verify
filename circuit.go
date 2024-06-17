@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"github.com/consensys/gnark/frontend"
 	"github.com/consensys/gnark/std/hash/sha3"
+	"github.com/consensys/gnark/std/math/bits"
 	"github.com/consensys/gnark/std/math/uints"
 	"log"
 	"math/big"
@@ -66,24 +67,52 @@ func (circuit *AggregatorCircuit) Define(api frontend.API) error {
 		bufLen++
 	}
 
+	var hashBuf0 bytes.Buffer
+	for i := 0; i < bufLen; i++ {
+		ele := new(big.Int).SetUint64(120)
+		hashBuf0.Write(ele.FillBytes(make([]byte, 32)))
+	}
+
+	hashVal := crypto.Keccak256Hash(hashBuf0.Bytes())
+	hashBig := big.NewInt(0).SetBytes(hashVal.Bytes())
+	log.Println(hashBig, hashVal.String())
+
 	var hashBuf bytes.Buffer
 	for i := 0; i < bufLen; i++ {
+		buf[i] = new(big.Int).SetUint64(120)
 		bufBytes := convertVariableToBytes(api, buf[i])
 		hashBuf.Write(new(big.Int).SetBytes(bufBytes).FillBytes(make([]byte, 32)))
 	}
 
-	hashVal := crypto.Keccak256Hash(hashBuf.Bytes())
-	hashVar := uints.NewU8Array(hashVal.Bytes())
-	log.Println(new(big.Int).SetBytes(hashVal.Bytes()).String())
+	hashVal = crypto.Keccak256Hash(hashBuf.Bytes())
+	hashBig = big.NewInt(0).SetBytes(hashVal.Bytes())
+	log.Println(hashBig, hashVal.String())
 
 	input := uints.NewU8Array(hashBuf.Bytes())
+	hashVar := uints.NewU8Array(hashVal.Bytes())
 	err := VerifyKeccak256(api, input, hashVar)
 	if err != nil {
 		log.Println(err)
 		return err
 	}
 
-	buf[2] = bytesToFrontendVariable(api, hashVal.Bytes())
+	//buf[2] = bytesToFrontendVariable(api, hashVal.Bytes())
+	q, _ := big.NewInt(0).SetString("21888242871839275222246405745257275088548364400416034343698204186575808495617", 10)
+	hashMod := big.NewInt(0).Mod(hashBig, q)
+	log.Println(hashMod)
+
+	//buf[2] = frontend.Variable(hashMod)
+
+	buf[2] = q
+	log.Println(buf[2])
+
+	qVarBytes := convertVariableToBytes(api, buf[2])
+	log.Println(q.Bytes())
+	log.Println(qVarBytes)
+
+	buf[2] = bytesToFrontendVariable(api, qVarBytes)
+
+	log.Println(buf[2])
 
 	return nil
 }
@@ -96,12 +125,13 @@ func bytesToFrontendVariable(api frontend.API, bytes []byte) frontend.Variable {
 			binary[i*8+j] = *val
 		}
 	}
-	return api.FromBinary(binary...)
+	return bits.FromBinary(api, binary, bits.WithUnconstrainedInputs())
+	//return api.FromBinary(binary..., bits.WithUnconstrainedOutputs())
 }
 
 // convertBitsToBytes converts a binary representation to a byte array
 func convertVariableToBytes(api frontend.API, variable frontend.Variable) []byte {
-	binary := api.ToBinary(variable, 256)
+	binary := api.ToBinary(variable)
 	return binaryToBytes(binary)
 }
 

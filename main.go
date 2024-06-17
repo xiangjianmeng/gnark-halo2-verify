@@ -25,48 +25,24 @@ func main() {
 		TargetInst: make([]frontend.Variable, 1),
 	}
 
+	//aggCircuit.Proof[0] = frontend.Variable(big.NewInt(100))
+	//aggCircuit.VerifyInst[0] = frontend.Variable(big.NewInt(120))
+	//aggCircuit.Aux[0] = frontend.Variable(big.NewInt(100))
+	//aggCircuit.TargetInst[0] = frontend.Variable(big.NewInt(110))
+
 	r1cs, err := frontend.Compile(ecc.BN254.ScalarField(), scs.NewBuilder, &aggCircuit)
-	//fmt.Println(p.NbConstraints())
-	//fmt.Println(p.Top())
-
-	//r, ok := big.NewInt(0).SetString("45536044045135930417610581277973574046122438970391757925449844580498097416238", 10)
-	//if !ok {
-	//	panic("invalid value")
-	//}
-
-	//s, ok := big.NewInt(0).SetString("77405625560525123464152303145240770328705524946250305291099118722847750339975", 10)
-	//if !ok {
-	//	panic("invalid value")
-	//}
-	//
-	//x, ok := big.NewInt(0).SetString("85997066971194522473057012223499312995837068047270353161199320975157154592866", 10)
-	//if !ok {
-	//	panic("invalid value")
-	//}
-	//
-	//y, ok := big.NewInt(0).SetString("40070151623224504185408656535330873345235311800089295101492157067180406840001", 10)
-	//if !ok {
-	//	panic("invalid value")
-	//}
-	//
-	//hash, ok := big.NewInt(0).SetString("65836751601596300032969389553597263219621359970931417026813124302429596772205", 10)
-	////hash, ok := big.NewInt(0).SetString("55836751601596300032969389553597263219621359970931417026813124302429596772205", 10)
-	//if !ok {
-	//	panic("invalid value")
-	//}
+	if err != nil {
+		panic(err)
+	}
 
 	log.Println("start setup")
 
-	// 1. One time setup
-	//pk, vk, err := groth16.Setup(r1cs)
-	//if err != nil {
-	//	panic(err)
-	//}
-
 	srs, srsLagrange, err := unsafekzg.NewSRS(r1cs)
+	if err != nil {
+		panic(err)
+	}
 
 	pk, vk, err := plonk.Setup(r1cs, srs, srsLagrange)
-
 	if err != nil {
 		panic(err)
 	}
@@ -80,9 +56,9 @@ func main() {
 		TargetInst: make([]frontend.Variable, 1),
 	}
 	witnessCircuit.Proof[0] = frontend.Variable(big.NewInt(100))
-	witnessCircuit.VerifyInst[0] = frontend.Variable(big.NewInt(100))
+	witnessCircuit.VerifyInst[0] = frontend.Variable(big.NewInt(120))
 	witnessCircuit.Aux[0] = frontend.Variable(big.NewInt(100))
-	witnessCircuit.TargetInst[0] = frontend.Variable(big.NewInt(100))
+	witnessCircuit.TargetInst[0] = frontend.Variable(big.NewInt(110))
 
 	witness, err := frontend.NewWitness(&witnessCircuit, ecc.BN254.ScalarField())
 	if err != nil {
