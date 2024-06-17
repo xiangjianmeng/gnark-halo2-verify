@@ -51,7 +51,6 @@ type AggregatorCircuit struct {
 }
 
 func (circuit *AggregatorCircuit) Define(api frontend.API) error {
-
 	buf := [43]frontend.Variable{}
 
 	// step 0: calc real verify instance with keccak
@@ -75,7 +74,7 @@ func (circuit *AggregatorCircuit) Define(api frontend.API) error {
 	hashValBig := big.NewInt(0).SetBytes(hashValHex.Bytes())
 	log.Println("eth Keccak256Hash", hashBuf.Bytes(), hashValBig, hashValHex.String())
 
-	q, _ := big.NewInt(0).SetString("21888242871839275222246405745257275088548364400416034343698204186575808495617", 10)
+	q, _ := big.NewInt(0).SetString(FrModulus, 10)
 	hashMod := big.NewInt(0).Mod(hashValBig, q)
 	log.Println("hashMod: ", hashMod)
 

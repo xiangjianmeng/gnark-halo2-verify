@@ -37,17 +37,17 @@ func TestOnBn254(t *testing.T) {
 	y.SetString("9053077977614827188269653632534212501565186534180282672519599630892718179094", 10)
 
 	// Define the curve modulus and b parameter
-	p := new(big.Int)
-	p.SetString("21888242871839275222246405745257275088548364400416034343698204186575808495617", 10)
+	q := new(big.Int)
+	q.SetString(FrModulus, 10)
 
 	// Define x^3 + 3
-	xCubed := new(big.Int).Exp(x, big.NewInt(3), p)
+	xCubed := new(big.Int).Exp(x, big.NewInt(3), q)
 	xCubed.Add(xCubed, big.NewInt(3))
-	xCubed.Mod(xCubed, p)
+	xCubed.Mod(xCubed, q)
 
 	// Define y^2
 	ySquared := new(big.Int).Mul(y, y)
-	ySquared.Mod(ySquared, p)
+	ySquared.Mod(ySquared, q)
 
 	if xCubed.Cmp(ySquared) == 0 {
 		fmt.Println("The point is on the BN256 curve")

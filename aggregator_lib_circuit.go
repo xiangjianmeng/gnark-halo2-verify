@@ -4,13 +4,18 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
-	"github.com/ethereum/go-ethereum/crypto/bn256"
 	"math/big"
 	"regexp"
 	"strings"
 
 	"github.com/consensys/gnark-crypto/ecc/bn254"
 	"github.com/consensys/gnark/frontend"
+	"github.com/ethereum/go-ethereum/crypto/bn256"
+)
+
+var (
+	FpModulus = "21888242871839275222246405745257275088696311157297823662689037894645226208583"
+	FrModulus = "21888242871839275222246405745257275088548364400416034343698204186575808495617"
 )
 
 // BN256MsmCircuit is the circuit that performs a bn256 pairing operation
