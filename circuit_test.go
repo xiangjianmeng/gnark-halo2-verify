@@ -3,13 +3,13 @@ package main
 import (
 	"crypto/rand"
 	"fmt"
+	"math/big"
+	"testing"
+
 	"github.com/consensys/gnark-crypto/ecc"
 	"github.com/consensys/gnark/frontend"
 	"github.com/consensys/gnark/test"
 	"github.com/ethereum/go-ethereum/crypto"
-	"math/big"
-	"testing"
-
 	//"github.com/consensys/gnark/std/hash/sha3"
 	crysha3 "golang.org/x/crypto/sha3"
 )
