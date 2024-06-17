@@ -2,22 +2,21 @@ package main
 
 import (
 	"bytes"
-	"github.com/consensys/gnark/frontend"
-	"github.com/consensys/gnark/std/hash/sha3"
-	"github.com/consensys/gnark/std/math/bits"
-	"github.com/consensys/gnark/std/math/uints"
 	"log"
 	"math/big"
-	//"github.com/consensys/gnark/std/math/bits"
+
+	"github.com/consensys/gnark/frontend"
+	"github.com/consensys/gnark/std/hash/sha3"
+	"github.com/consensys/gnark/std/math/uints"
 	"github.com/ethereum/go-ethereum/crypto"
 )
 
-type Keccak256Constraints struct {
+type Keccak256Circuit struct {
 	InputValue []uints.U8
 	HashValue  []uints.U8
 }
 
-func (circuit Keccak256Constraints) Define(api frontend.API) error {
+func (circuit Keccak256Circuit) Define(api frontend.API) error {
 	return VerifyKeccak256(api, circuit.InputValue, circuit.HashValue)
 }
 
@@ -67,85 +66,32 @@ func (circuit *AggregatorCircuit) Define(api frontend.API) error {
 		bufLen++
 	}
 
-	var hashBuf0 bytes.Buffer
-	for i := 0; i < bufLen; i++ {
-		ele := new(big.Int).SetUint64(120)
-		hashBuf0.Write(ele.FillBytes(make([]byte, 32)))
-	}
-
-	hashVal := crypto.Keccak256Hash(hashBuf0.Bytes())
-	hashBig := big.NewInt(0).SetBytes(hashVal.Bytes())
-	log.Println(hashBig, hashVal.String())
-
 	var hashBuf bytes.Buffer
 	for i := 0; i < bufLen; i++ {
-		buf[i] = new(big.Int).SetUint64(120)
-		bufBytes := convertVariableToBytes(api, buf[i])
-		hashBuf.Write(new(big.Int).SetBytes(bufBytes).FillBytes(make([]byte, 32)))
+		tmp := buf[i].(*big.Int)
+		hashBuf.Write(tmp.FillBytes(make([]byte, 32)))
 	}
+	hashValHex := crypto.Keccak256Hash(hashBuf.Bytes())
+	hashValBig := big.NewInt(0).SetBytes(hashValHex.Bytes())
+	log.Println("eth Keccak256Hash", hashBuf.Bytes(), hashValBig, hashValHex.String())
 
-	hashVal = crypto.Keccak256Hash(hashBuf.Bytes())
-	hashBig = big.NewInt(0).SetBytes(hashVal.Bytes())
-	log.Println(hashBig, hashVal.String())
+	q, _ := big.NewInt(0).SetString("21888242871839275222246405745257275088548364400416034343698204186575808495617", 10)
+	hashMod := big.NewInt(0).Mod(hashValBig, q)
+	log.Println("hashMod: ", hashMod)
 
 	input := uints.NewU8Array(hashBuf.Bytes())
-	hashVar := uints.NewU8Array(hashVal.Bytes())
+	hashVar := uints.NewU8Array(hashValHex.Bytes())
 	err := VerifyKeccak256(api, input, hashVar)
 	if err != nil {
 		log.Println(err)
 		return err
 	}
 
-	//buf[2] = bytesToFrontendVariable(api, hashVal.Bytes())
-	q, _ := big.NewInt(0).SetString("21888242871839275222246405745257275088548364400416034343698204186575808495617", 10)
-	hashMod := big.NewInt(0).Mod(hashBig, q)
-	log.Println(hashMod)
-
-	//buf[2] = frontend.Variable(hashMod)
-
-	buf[2] = q
-	log.Println(buf[2])
-
-	qVarBytes := convertVariableToBytes(api, buf[2])
-	log.Println(q.Bytes())
-	log.Println(qVarBytes)
-
-	buf[2] = bytesToFrontendVariable(api, qVarBytes)
-
-	log.Println(buf[2])
+	buf[2] = frontend.Variable(hashMod)
+	err = calcVerifyCircuitLagrange(api, buf[:])
+	if err != nil {
+		return err
+	}
 
 	return nil
-}
-
-func bytesToFrontendVariable(api frontend.API, bytes []byte) frontend.Variable {
-	binary := make([]frontend.Variable, len(bytes)*8)
-	for i, b := range bytes {
-		for j := 0; j < 8; j++ {
-			val, _ := api.Compiler().ConstantValue((b >> j) & 1)
-			binary[i*8+j] = *val
-		}
-	}
-	return bits.FromBinary(api, binary, bits.WithUnconstrainedInputs())
-	//return api.FromBinary(binary..., bits.WithUnconstrainedOutputs())
-}
-
-// convertBitsToBytes converts a binary representation to a byte array
-func convertVariableToBytes(api frontend.API, variable frontend.Variable) []byte {
-	binary := api.ToBinary(variable)
-	return binaryToBytes(binary)
-}
-
-func binaryToBytes(binary []frontend.Variable) []byte {
-	byteCount := (len(binary) + 7) / 8
-	bytes := make([]byte, byteCount)
-
-	for i := 0; i < len(binary); i++ {
-		byteIndex := i / 8
-		bitIndex := i % 8
-		if binary[i] == 1 {
-			bytes[byteIndex] |= 1 << bitIndex
-		}
-	}
-
-	return bytes
 }

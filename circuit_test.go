@@ -3,6 +3,8 @@ package main
 import (
 	"crypto/rand"
 	"fmt"
+	"github.com/consensys/gnark-crypto/ecc"
+	"github.com/consensys/gnark/frontend"
 	"github.com/consensys/gnark/test"
 	"github.com/ethereum/go-ethereum/crypto"
 	"math/big"
@@ -52,4 +54,37 @@ func TestOnBn254(t *testing.T) {
 	} else {
 		fmt.Println("The point is NOT on the BN256 curve")
 	}
+}
+
+func TestCircuit(t *testing.T) {
+	var aggCircuit = AggregatorCircuit{
+		Proof:      make([]frontend.Variable, 1),
+		VerifyInst: make([]frontend.Variable, 1),
+		Aux:        make([]frontend.Variable, 1),
+		TargetInst: make([]frontend.Variable, 4),
+	}
+
+	var witnessCircuit = AggregatorCircuit{
+		Proof:      make([]frontend.Variable, 1),
+		VerifyInst: make([]frontend.Variable, 1),
+		Aux:        make([]frontend.Variable, 1),
+		TargetInst: make([]frontend.Variable, 4),
+	}
+
+	witnessCircuit.Proof[0] = frontend.Variable(big.NewInt(100))
+	verifyIns, _ := big.NewInt(0).SetString("10573525131658455000365299935369648652552518565632155338390913030155084554858", 10)
+	witnessCircuit.VerifyInst[0] = frontend.Variable(verifyIns)
+	witnessCircuit.Aux[0] = frontend.Variable(big.NewInt(100))
+	target0, _ := big.NewInt(0).SetString("7059793422771910484", 10)
+	target1, _ := big.NewInt(0).SetString("2556686405730241944", 10)
+	target2, _ := big.NewInt(0).SetString("2133554817341762742", 10)
+	target3, _ := big.NewInt(0).SetString("8974371243071329347", 10)
+	witnessCircuit.TargetInst[0] = frontend.Variable(target0)
+	witnessCircuit.TargetInst[1] = frontend.Variable(target1)
+	witnessCircuit.TargetInst[2] = frontend.Variable(target2)
+	witnessCircuit.TargetInst[3] = frontend.Variable(target3)
+
+	err := test.IsSolved(&aggCircuit, &witnessCircuit, ecc.BN254.ScalarField())
+	assert := test.NewAssert(t)
+	assert.NoError(err)
 }

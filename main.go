@@ -22,13 +22,15 @@ func main() {
 		Proof:      make([]frontend.Variable, 1),
 		VerifyInst: make([]frontend.Variable, 1),
 		Aux:        make([]frontend.Variable, 1),
-		TargetInst: make([]frontend.Variable, 1),
+		TargetInst: make([]frontend.Variable, 4),
 	}
 
-	//aggCircuit.Proof[0] = frontend.Variable(big.NewInt(100))
-	//aggCircuit.VerifyInst[0] = frontend.Variable(big.NewInt(120))
-	//aggCircuit.Aux[0] = frontend.Variable(big.NewInt(100))
-	//aggCircuit.TargetInst[0] = frontend.Variable(big.NewInt(110))
+	var witnessCircuit = AggregatorCircuit{
+		Proof:      make([]frontend.Variable, 1),
+		VerifyInst: make([]frontend.Variable, 1),
+		Aux:        make([]frontend.Variable, 1),
+		TargetInst: make([]frontend.Variable, 4),
+	}
 
 	r1cs, err := frontend.Compile(ecc.BN254.ScalarField(), scs.NewBuilder, &aggCircuit)
 	if err != nil {
@@ -49,16 +51,18 @@ func main() {
 
 	log.Println("end setup")
 
-	var witnessCircuit = AggregatorCircuit{
-		Proof:      make([]frontend.Variable, 1),
-		VerifyInst: make([]frontend.Variable, 1),
-		Aux:        make([]frontend.Variable, 1),
-		TargetInst: make([]frontend.Variable, 1),
-	}
 	witnessCircuit.Proof[0] = frontend.Variable(big.NewInt(100))
-	witnessCircuit.VerifyInst[0] = frontend.Variable(big.NewInt(120))
+	verifyIns, _ := big.NewInt(0).SetString("10573525131658455000365299935369648652552518565632155338390913030155084554858", 10)
+	witnessCircuit.VerifyInst[0] = frontend.Variable(verifyIns)
 	witnessCircuit.Aux[0] = frontend.Variable(big.NewInt(100))
-	witnessCircuit.TargetInst[0] = frontend.Variable(big.NewInt(110))
+	target0, _ := big.NewInt(0).SetString("7059793422771910484", 10)
+	target1, _ := big.NewInt(0).SetString("2556686405730241944", 10)
+	target2, _ := big.NewInt(0).SetString("2133554817341762742", 10)
+	target3, _ := big.NewInt(0).SetString("8974371243071329347", 10)
+	witnessCircuit.TargetInst[0] = frontend.Variable(target0)
+	witnessCircuit.TargetInst[1] = frontend.Variable(target1)
+	witnessCircuit.TargetInst[2] = frontend.Variable(target2)
+	witnessCircuit.TargetInst[3] = frontend.Variable(target3)
 
 	witness, err := frontend.NewWitness(&witnessCircuit, ecc.BN254.ScalarField())
 	if err != nil {
