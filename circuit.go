@@ -6,42 +6,9 @@ import (
 	"math/big"
 
 	"github.com/consensys/gnark/frontend"
-	"github.com/consensys/gnark/std/hash/sha3"
 	"github.com/consensys/gnark/std/math/uints"
 	"github.com/ethereum/go-ethereum/crypto"
 )
-
-type Keccak256Circuit struct {
-	InputValue []uints.U8
-	HashValue  []uints.U8
-}
-
-func (circuit Keccak256Circuit) Define(api frontend.API) error {
-	return VerifyKeccak256(api, circuit.InputValue, circuit.HashValue)
-}
-
-func VerifyKeccak256(
-	api frontend.API,
-	inputValue []uints.U8,
-	hashValue []uints.U8,
-) error {
-	h, err := sha3.NewLegacyKeccak256(api)
-	if err != nil {
-		return err
-	}
-	uapi, err := uints.New[uints.U64](api)
-	if err != nil {
-		return err
-	}
-
-	h.Write(inputValue)
-	res := h.Sum()
-
-	for i := range hashValue {
-		uapi.ByteAssertEq(hashValue[i], res[i])
-	}
-	return nil
-}
 
 type AggregatorCircuit struct {
 	Proof      []frontend.Variable
@@ -72,11 +39,10 @@ func (circuit *AggregatorCircuit) Define(api frontend.API) error {
 	}
 	hashValHex := crypto.Keccak256Hash(hashBuf.Bytes())
 	hashValBig := big.NewInt(0).SetBytes(hashValHex.Bytes())
-	log.Println("eth Keccak256Hash", hashBuf.Bytes(), hashValBig, hashValHex.String())
 
 	q, _ := big.NewInt(0).SetString(FrModulus, 10)
 	hashMod := big.NewInt(0).Mod(hashValBig, q)
-	log.Println("hashMod: ", hashMod)
+	//log.Println("hashMod: ", hashMod)
 
 	input := uints.NewU8Array(hashBuf.Bytes())
 	hashVar := uints.NewU8Array(hashValHex.Bytes())
@@ -88,6 +54,11 @@ func (circuit *AggregatorCircuit) Define(api frontend.API) error {
 
 	buf[2] = frontend.Variable(hashMod)
 	err = calcVerifyCircuitLagrange(api, buf[:])
+	if err != nil {
+		return err
+	}
+
+	err = GetChallengesShPlonkCircuit(api, buf[:], circuit.Proof)
 	if err != nil {
 		return err
 	}

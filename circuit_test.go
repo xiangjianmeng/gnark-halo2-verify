@@ -1,7 +1,6 @@
 package main
 
 import (
-	"crypto/rand"
 	"fmt"
 	"math/big"
 	"testing"
@@ -16,14 +15,15 @@ import (
 
 func TestSha3(t *testing.T) {
 	assert := test.NewAssert(t)
-	in := make([]byte, 310)
-	_, err := rand.Reader.Read(in)
-	assert.NoError(err)
+	input, succ := new(big.Int).SetString("21018549926786911420919261871844456760738199621624594828144407595472474813958", 10)
+	assert.True(succ)
 
-	ethHashVal := crypto.Keccak256Hash(in)
+	inputBytes := input.FillBytes(make([]byte, 32))
+
+	ethHashVal := crypto.Keccak256Hash(inputBytes)
 
 	hasher := crysha3.NewLegacyKeccak256()
-	hasher.Write(in)
+	hasher.Write(inputBytes)
 	cryHashVal := hasher.Sum(nil)
 
 	assert.Equal(ethHashVal.Bytes(), cryHashVal, "wrong hash")
@@ -58,23 +58,29 @@ func TestOnBn254(t *testing.T) {
 
 func TestCircuit(t *testing.T) {
 	var aggCircuit = AggregatorCircuit{
-		Proof:      make([]frontend.Variable, 1),
+		Proof:      make([]frontend.Variable, len(proofStr)),
 		VerifyInst: make([]frontend.Variable, 1),
-		Aux:        make([]frontend.Variable, 1),
+		Aux:        make([]frontend.Variable, len(auxStr)),
 		TargetInst: make([]frontend.Variable, 4),
 	}
 
 	var witnessCircuit = AggregatorCircuit{
-		Proof:      make([]frontend.Variable, 1),
+		Proof:      make([]frontend.Variable, len(proofStr)),
 		VerifyInst: make([]frontend.Variable, 1),
-		Aux:        make([]frontend.Variable, 1),
+		Aux:        make([]frontend.Variable, len(auxStr)),
 		TargetInst: make([]frontend.Variable, 4),
 	}
 
-	witnessCircuit.Proof[0] = frontend.Variable(big.NewInt(100))
+	for i := 0; i < len(proofStr); i++ {
+		proof, _ := big.NewInt(0).SetString(proofStr[i], 10)
+		witnessCircuit.Proof[i] = frontend.Variable(proof)
+	}
 	verifyIns, _ := big.NewInt(0).SetString("10573525131658455000365299935369648652552518565632155338390913030155084554858", 10)
 	witnessCircuit.VerifyInst[0] = frontend.Variable(verifyIns)
-	witnessCircuit.Aux[0] = frontend.Variable(big.NewInt(100))
+	for i := 0; i < len(auxStr); i++ {
+		aux, _ := big.NewInt(0).SetString(auxStr[i], 10)
+		witnessCircuit.Aux[i] = frontend.Variable(aux)
+	}
 	target0, _ := big.NewInt(0).SetString("7059793422771910484", 10)
 	target1, _ := big.NewInt(0).SetString("2556686405730241944", 10)
 	target2, _ := big.NewInt(0).SetString("2133554817341762742", 10)
