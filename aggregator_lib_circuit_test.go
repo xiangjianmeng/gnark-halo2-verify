@@ -1,7 +1,7 @@
 package main
 
 import (
-	"github.com/consensys/gnark/frontend"
+	"github.com/consensys/gnark-crypto/ecc/bn254/fr"
 	"log"
 	"math/big"
 	"testing"
@@ -132,13 +132,17 @@ func TestCheckOnCurveCircuit(t *testing.T) {
 	g10.Y.SetString("16502678157049327323910877548707266122319935523346850792311342099791838736912")
 	assert.True(g10.IsOnCurve())
 
+	var xEle fr.Element
+	xEle.SetBigInt(x)
+	var yEle fr.Element
+	yEle.SetBigInt(y)
 	witnessCircuit := CheckOnCurveCircuit{
-		frontend.Variable(x),
-		frontend.Variable(y),
+		xEle,
+		yEle,
 	}
 	circuit := CheckOnCurveCircuit{
-		frontend.Variable(x),
-		frontend.Variable(y),
+		xEle,
+		yEle,
 	}
 
 	err := test.IsSolved(&circuit, &witnessCircuit, ecc.BN254.ScalarField())

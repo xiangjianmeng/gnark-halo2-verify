@@ -5,20 +5,21 @@ import (
 	"log"
 	"math/big"
 
+	"github.com/consensys/gnark-crypto/ecc/bn254/fr"
 	"github.com/consensys/gnark/frontend"
 	"github.com/consensys/gnark/std/math/uints"
 	"github.com/ethereum/go-ethereum/crypto"
 )
 
 type AggregatorCircuit struct {
-	Proof      []frontend.Variable
-	VerifyInst []frontend.Variable
-	Aux        []frontend.Variable
-	TargetInst []frontend.Variable `gnark:",public"`
+	Proof      []fr.Element
+	VerifyInst []fr.Element
+	Aux        []fr.Element
+	TargetInst []fr.Element `gnark:",public"`
 }
 
 func (circuit *AggregatorCircuit) Define(api frontend.API) error {
-	buf := [43]frontend.Variable{}
+	buf := [43]fr.Element{}
 
 	// step 0: calc real verify instance with keccak
 	var bufLen = 0
@@ -34,8 +35,8 @@ func (circuit *AggregatorCircuit) Define(api frontend.API) error {
 
 	var hashBuf bytes.Buffer
 	for i := 0; i < bufLen; i++ {
-		tmp := buf[i].(*big.Int)
-		hashBuf.Write(tmp.FillBytes(make([]byte, 32)))
+		input := buf[i].Bytes()
+		hashBuf.Write(input[:])
 	}
 	hashValHex := crypto.Keccak256Hash(hashBuf.Bytes())
 	hashValBig := big.NewInt(0).SetBytes(hashValHex.Bytes())
@@ -52,7 +53,7 @@ func (circuit *AggregatorCircuit) Define(api frontend.API) error {
 		return err
 	}
 
-	buf[2] = frontend.Variable(hashMod)
+	buf[2].SetBigInt(hashMod)
 	err = calcVerifyCircuitLagrange(api, buf[:])
 	if err != nil {
 		return err
