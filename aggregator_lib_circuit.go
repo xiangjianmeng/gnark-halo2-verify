@@ -52,35 +52,44 @@ func VerifyBN256Msm(
 	return nil
 }
 
-func calcVerifyCircuitLagrange(api frontend.API, buf []fr.Element) error {
+func CalcVerifyCircuitLagrange(api frontend.API, buf []fr.Element) error {
 	x, _ := new(big.Int).SetString("13534086339230182803823178260078315691269243572458753455438283544709107378988", 10)
 	y, _ := new(big.Int).SetString("9053077977614827188269653632534212501565186534180282672519599630892718179094", 10)
 
+	buf[0] = *new(fr.Element).SetBigInt(x)
+	buf[1] = *new(fr.Element).SetBigInt(y)
+	_, err := CalcVerifyBN256Msm(api, buf)
+	return err
+}
+
+func CalcVerifyBN256Msm(api frontend.API, buf []fr.Element) ([2]fr.Element, error) {
 	var blob []byte
-	blob = append(blob, x.FillBytes(make([]byte, 32))...)
-	blob = append(blob, y.FillBytes(make([]byte, 32))...)
+	bufByte := buf[0].Bytes()
+	blob = append(blob, bufByte[:]...)
+	bufByte = buf[1].Bytes()
+	blob = append(blob, bufByte[:]...)
 
 	p := new(bn256.G1)
 	_, err := p.Unmarshal(blob)
 	if err != nil {
-		return err
+		return [2]fr.Element{}, err
 	}
 	res := new(bn256.G1)
 	var scalar = new(big.Int)
-	scalar = buf[2].BigInt(scalar)
-	res.ScalarMult(p, new(big.Int).SetBytes(scalar.FillBytes(make([]byte, 32))))
+	//scalar = buf[2].BigInt(scalar)
+	res.ScalarMult(p, buf[2].BigInt(scalar))
 
 	var g10 = bn254.G1Affine{}
-	_, err = g10.X.SetString(x.String())
+	_, err = g10.X.SetString(buf[0].String())
 	if err != nil {
 		panic(err)
 	}
-	_, err = g10.Y.SetString(y.String())
+	_, err = g10.Y.SetString(buf[1].String())
 	if err != nil {
 		panic(err)
 	}
 	if !g10.IsOnCurve() {
-		return errors.New("bn256.G1Affine is not on curve")
+		return [2]fr.Element{}, errors.New("bn256.G1Affine is not on curve")
 	}
 
 	var resCircuit = bn254.G1Affine{}
@@ -93,7 +102,9 @@ func calcVerifyCircuitLagrange(api frontend.API, buf []fr.Element) error {
 	if err != nil {
 		panic(err)
 	}
-	return VerifyBN256Msm(api, &g10, scalar, &resCircuit)
+	productX := *new(fr.Element).SetBigInt(resCircuit.X.BigInt(new(big.Int)))
+	productY := *new(fr.Element).SetBigInt(resCircuit.Y.BigInt(new(big.Int)))
+	return [2]fr.Element{productX, productY}, VerifyBN256Msm(api, &g10, scalar, &resCircuit)
 }
 
 func extractAndConvert(input string) (string, string, error) {
@@ -396,4 +407,40 @@ func GetChallengesShPlonkCircuit(
 	}
 
 	return nil
+}
+
+func fr_pow(a fr.Element, power fr.Element) fr.Element {
+	return *a.Exp(a, power.BigInt(new(big.Int)))
+}
+
+func fr_mul(a fr.Element, b fr.Element) fr.Element {
+	return *a.Mul(&a, &b)
+}
+
+func fr_mul_neg(a fr.Element, b fr.Element) fr.Element {
+	tmp := a.Mul(&a, &b)
+	tmp = new(fr.Element).Neg(tmp)
+	return *tmp
+}
+
+func fr_add(a fr.Element, b fr.Element) fr.Element {
+	return *a.Add(&a, &b)
+}
+
+func fr_sub(a fr.Element, b fr.Element) fr.Element {
+	//return addmod(a, q_mod - b, q_mod)
+	return *a.Sub(&a, &b)
+}
+
+func fr_div(a fr.Element, b fr.Element, aux fr.Element) fr.Element {
+	r := fr_mul(b, aux)
+	if a != r {
+		panic("div fail")
+	}
+
+	//frZero := new(fr.Element).SetUint64(0)
+	//if b.Equal(frZero) {
+	//	panic("div zero")
+	//}
+	return aux
 }

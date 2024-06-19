@@ -54,7 +54,7 @@ func (circuit *AggregatorCircuit) Define(api frontend.API) error {
 	}
 
 	buf[2].SetBigInt(hashMod)
-	err = calcVerifyCircuitLagrange(api, buf[:])
+	err = CalcVerifyCircuitLagrange(api, buf[:])
 	if err != nil {
 		return err
 	}
