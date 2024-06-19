@@ -45,7 +45,7 @@ func VerifyBN256Pairing(
 	return nil
 }
 
-func (c *BN256PairingCircuit) fillVerifyCircuitsG1(x1, y1, x2, y2 string) {
+func (c *BN256PairingCircuit) FillVerifyCircuitsG1(x1, y1, x2, y2 string) {
 	var g10 = bn254.G1Affine{}
 	_, err1 := g10.X.SetString(x1)
 	_, err2 := g10.Y.SetString(y1)
@@ -66,8 +66,8 @@ func (c *BN256PairingCircuit) fillVerifyCircuitsG1(x1, y1, x2, y2 string) {
 
 }
 
-func (c *BN256PairingCircuit) fillVerifyCircuitsG2() {
-	g20, g21 := getVerifyCircuitsG2()
+func (c *BN256PairingCircuit) FillVerifyCircuitsG2() {
+	g20, g21 := GetVerifyCircuitsG2Jac()
 
 	var g20GenAff, g21GenAff bn254.G2Affine
 	g20GenAff.FromJacobian(&g20)
@@ -80,7 +80,7 @@ func (c *BN256PairingCircuit) fillVerifyCircuitsG2() {
 	c.G2Points = [2]*sw_bn254.G2Affine{&swG20, &swG21}
 }
 
-func getVerifyCircuitsG2() (bn254.G2Jac, bn254.G2Jac) {
+func GetVerifyCircuitsG2Jac() (bn254.G2Jac, bn254.G2Jac) {
 	var g20 = bn254.G2Jac{}
 	g20.X.SetString(
 		"13560776910958896778309428450808722712362583089620853136731412215646945297830",

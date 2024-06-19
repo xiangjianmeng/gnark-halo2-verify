@@ -41,13 +41,13 @@ func createProof(pk groth16.ProvingKey, r1cs constraint.ConstraintSystem) (groth
 	witnessCircuit := BN256PairingCircuit{}
 
 	// Set the G1 and G2 points
-	witnessCircuit.fillVerifyCircuitsG1(
+	witnessCircuit.FillVerifyCircuitsG1(
 		"2920616387084030925907755037226454382846345550621956833249622258647667607078",
 		"16502678157049327323910877548707266122319935523346850792311342099791838736912",
 		"7162082828732168937516361335135022403650719329242056518668518043784043198510",
 		"18768486256042060147567165227366772940689098806912976766549486364846889365307",
 	)
-	witnessCircuit.fillVerifyCircuitsG2()
+	witnessCircuit.FillVerifyCircuitsG2()
 
 	witness, err := frontend.NewWitness(&witnessCircuit, ecc.BN254.ScalarField())
 	if err != nil {
@@ -81,13 +81,13 @@ func TestPairingCheckTestSolve(t *testing.T) {
 		G2Points: [2]*sw_bn254.G2Affine{new(sw_bn254.G2Affine), new(sw_bn254.G2Affine)},
 	}
 
-	witnessCircuit.fillVerifyCircuitsG1(
+	witnessCircuit.FillVerifyCircuitsG1(
 		"2920616387084030925907755037226454382846345550621956833249622258647667607078",
 		"16502678157049327323910877548707266122319935523346850792311342099791838736912",
 		"7162082828732168937516361335135022403650719329242056518668518043784043198510",
 		"18768486256042060147567165227366772940689098806912976766549486364846889365307",
 	)
-	witnessCircuit.fillVerifyCircuitsG2()
+	witnessCircuit.FillVerifyCircuitsG2()
 	err := test.IsSolved(&circuit, &witnessCircuit, ecc.BN254.ScalarField())
 
 	assert := test.NewAssert(t)
@@ -145,7 +145,7 @@ func TestOnCurve(t *testing.T) {
 	g11GAff.FromJacobian(&g11)
 	assert.True(g11GAff.IsOnCurve())
 
-	g20, g21 := getVerifyCircuitsG2()
+	g20, g21 := GetVerifyCircuitsG2Jac()
 	assert.True(g20.IsOnCurve())
 	assert.True(g21.IsOnCurve())
 }

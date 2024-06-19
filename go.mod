@@ -8,6 +8,7 @@ require (
 	github.com/consensys/gnark v0.10.0
 	github.com/consensys/gnark-crypto v0.12.2-0.20240215234832-d72fcb379d3e
 	github.com/ethereum/go-ethereum v1.14.5
+	golang.org/x/crypto v0.22.0
 )
 
 require (
@@ -29,7 +30,6 @@ require (
 	github.com/rs/zerolog v1.30.0 // indirect
 	github.com/stretchr/testify v1.8.4 // indirect
 	github.com/x448/float16 v0.8.4 // indirect
-	golang.org/x/crypto v0.22.0 // indirect
 	golang.org/x/exp v0.0.0-20231110203233-9a3e6036ecaa // indirect
 	golang.org/x/sync v0.7.0 // indirect
 	golang.org/x/sys v0.20.0 // indirect

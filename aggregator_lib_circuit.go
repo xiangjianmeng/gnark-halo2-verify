@@ -5,6 +5,8 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"github.com/consensys/gnark/std/math/emulated"
+	"log"
 	"math/big"
 	"regexp"
 	"strings"
@@ -19,8 +21,17 @@ import (
 )
 
 var (
-	FpModulus = "21888242871839275222246405745257275088696311157297823662689037894645226208583"
-	FrModulus = "21888242871839275222246405745257275088548364400416034343698204186575808495617"
+	FpModulus          = "21888242871839275222246405745257275088696311157297823662689037894645226208583"
+	FrModulus          = "21888242871839275222246405745257275088548364400416034343698204186575808495617"
+	MODULUS   *big.Int = emulated.BN254Fr{}.Modulus()
+)
+
+type RangeCheckerType int
+
+const (
+	NATIVE_RANGE_CHECKER RangeCheckerType = iota
+	COMMIT_RANGE_CHECKER
+	BIT_DECOMP_RANGE_CHECKER
 )
 
 // BN256MsmCircuit is the circuit that performs a bn256 pairing operation
@@ -47,8 +58,38 @@ func VerifyBN256Msm(
 	res *bn254.G1Affine,
 ) error {
 	g1Point = g1Point.ScalarMultiplication(g1Point, scalar)
+	log.Println("test", g1Point.String(), res.String())
 	api.AssertIsEqual(g1Point.X, res.X)
 	api.AssertIsEqual(g1Point.Y, res.Y)
+	return nil
+}
+
+// BN256AddCircuit is the circuit that performs a bn256 pairing operation
+type BN256AddCircuit struct {
+	// Inputs
+	G10Point *bn254.G1Affine
+	G11Point *bn254.G1Affine
+	Res      *bn254.G1Affine
+}
+
+func (c *BN256AddCircuit) Define(api frontend.API) error {
+	return VerifyBN256Add(
+		api,
+		c.G10Point,
+		c.G11Point,
+		c.Res,
+	)
+}
+
+func VerifyBN256Add(
+	api frontend.API,
+	g10Point *bn254.G1Affine,
+	g11Point *bn254.G1Affine,
+	res *bn254.G1Affine,
+) error {
+	sum := g10Point.Add(g10Point, g11Point)
+	api.AssertIsEqual(sum.X, res.X)
+	api.AssertIsEqual(sum.Y, res.Y)
 	return nil
 }
 
@@ -64,10 +105,10 @@ func CalcVerifyCircuitLagrange(api frontend.API, buf []fr.Element) error {
 
 func CalcVerifyBN256Msm(api frontend.API, buf []fr.Element) ([2]fr.Element, error) {
 	var blob []byte
-	bufByte := buf[0].Bytes()
-	blob = append(blob, bufByte[:]...)
-	bufByte = buf[1].Bytes()
-	blob = append(blob, bufByte[:]...)
+	bufByte0 := buf[0].Bytes()
+	blob = append(blob, bufByte0[:]...)
+	bufByte1 := buf[1].Bytes()
+	blob = append(blob, bufByte1[:]...)
 
 	p := new(bn256.G1)
 	_, err := p.Unmarshal(blob)
@@ -76,8 +117,8 @@ func CalcVerifyBN256Msm(api frontend.API, buf []fr.Element) ([2]fr.Element, erro
 	}
 	res := new(bn256.G1)
 	var scalar = new(big.Int)
-	//scalar = buf[2].BigInt(scalar)
-	res.ScalarMult(p, buf[2].BigInt(scalar))
+	scalar = buf[2].BigInt(scalar)
+	res.ScalarMult(p, scalar)
 
 	var g10 = bn254.G1Affine{}
 	_, err = g10.X.SetString(buf[0].String())
@@ -105,6 +146,75 @@ func CalcVerifyBN256Msm(api frontend.API, buf []fr.Element) ([2]fr.Element, erro
 	productX := *new(fr.Element).SetBigInt(resCircuit.X.BigInt(new(big.Int)))
 	productY := *new(fr.Element).SetBigInt(resCircuit.Y.BigInt(new(big.Int)))
 	return [2]fr.Element{productX, productY}, VerifyBN256Msm(api, &g10, scalar, &resCircuit)
+}
+
+func CalcVerifyBN256Add(api frontend.API, buf []fr.Element) ([2]fr.Element, error) {
+	// TODO: sanity check
+	var blob0 []byte
+	bufByte := buf[0].Bytes()
+	blob0 = append(blob0, bufByte[:]...)
+	bufByte = buf[1].Bytes()
+	blob0 = append(blob0, bufByte[:]...)
+	p0 := new(bn256.G1)
+	_, err := p0.Unmarshal(blob0)
+	if err != nil {
+		return [2]fr.Element{}, err
+	}
+
+	var blob1 []byte
+	bufByte = buf[2].Bytes()
+	blob1 = append(blob1, bufByte[:]...)
+	bufByte = buf[3].Bytes()
+	blob1 = append(blob1, bufByte[:]...)
+	p1 := new(bn256.G1)
+	_, err = p1.Unmarshal(blob1)
+	if err != nil {
+		return [2]fr.Element{}, err
+	}
+
+	res := new(bn256.G1)
+	res.Add(p0, p1)
+
+	// circuit
+	var g10 = bn254.G1Affine{}
+	_, err = g10.X.SetString(buf[0].String())
+	if err != nil {
+		panic(err)
+	}
+	_, err = g10.Y.SetString(buf[1].String())
+	if err != nil {
+		panic(err)
+	}
+	if !g10.IsOnCurve() {
+		return [2]fr.Element{}, errors.New("bn256.G1Affine is not on curve")
+	}
+
+	var g11 = bn254.G1Affine{}
+	_, err = g11.X.SetString(buf[2].String())
+	if err != nil {
+		panic(err)
+	}
+	_, err = g11.Y.SetString(buf[3].String())
+	if err != nil {
+		panic(err)
+	}
+	if !g11.IsOnCurve() {
+		return [2]fr.Element{}, errors.New("bn256.G1Affine is not on curve")
+	}
+
+	var resCircuit = bn254.G1Affine{}
+	xStr, yStr, _ := extractAndConvert(res.String())
+	_, err = resCircuit.X.SetString(xStr)
+	if err != nil {
+		panic(err)
+	}
+	_, err = resCircuit.Y.SetString(yStr)
+	if err != nil {
+		panic(err)
+	}
+	productX := *new(fr.Element).SetBigInt(resCircuit.X.BigInt(new(big.Int)))
+	productY := *new(fr.Element).SetBigInt(resCircuit.Y.BigInt(new(big.Int)))
+	return [2]fr.Element{productX, productY}, VerifyBN256Add(api, &g10, &g11, &resCircuit)
 }
 
 func extractAndConvert(input string) (string, string, error) {
@@ -231,6 +341,31 @@ func VerifyCheckOnCurve(
 	var xBig, yBig big.Int
 	g1.X.SetBigInt(x.BigInt(&xBig))
 	g1.Y.SetBigInt(y.BigInt(&yBig))
+
+	// Enforce y² = x³ + 3
+	if !g1.IsOnCurve() {
+		return errors.New("bn256.G1Affine is not on curve")
+	}
+	return nil
+}
+
+type CheckOnCurveCircuitVar struct {
+	X frontend.Variable
+	Y frontend.Variable
+}
+
+func (circuit CheckOnCurveCircuitVar) Define(api frontend.API) error {
+	return VerifyCheckOnCurveVar(api, circuit.X, circuit.Y)
+}
+
+func VerifyCheckOnCurveVar(
+	api frontend.API,
+	x frontend.Variable,
+	y frontend.Variable,
+) error {
+	var g1 = bn254.G1Affine{}
+	g1.X.SetInterface(x)
+	g1.Y.SetInterface(y)
 
 	// Enforce y² = x³ + 3
 	if !g1.IsOnCurve() {
@@ -409,38 +544,112 @@ func GetChallengesShPlonkCircuit(
 	return nil
 }
 
-func fr_pow(a fr.Element, power fr.Element) fr.Element {
+func ecc_mul_add(api frontend.API, buf []fr.Element, offset int) {
+	res, err := CalcVerifyBN256Msm(api, buf[offset+2:])
+	if err != nil {
+		panic(err)
+	}
+	buf[offset+2] = res[0]
+	buf[offset+3] = res[1]
+
+	res, err = CalcVerifyBN256Add(api, buf[offset:])
+	buf[offset] = res[0]
+	buf[offset+1] = res[1]
+}
+
+func fr_pow(api frontend.API, a fr.Element, power fr.Element) fr.Element {
 	return *a.Exp(a, power.BigInt(new(big.Int)))
 }
 
-func fr_mul(a fr.Element, b fr.Element) fr.Element {
-	return *a.Mul(&a, &b)
+func fr_mul(api frontend.API, a frontend.Variable, b frontend.Variable) fr.Element {
+	//return *a.Mul(&a, &b)
+
+	frElem := new(fr.Element)
+	frElem, err := frElem.SetInterface(api.Mul(a, b))
+	if err != nil {
+		panic(err)
+	}
+	return *frElem
 }
 
-func fr_mul_neg(a fr.Element, b fr.Element) fr.Element {
+func fr_mul_neg(api frontend.API, a fr.Element, b fr.Element) fr.Element {
 	tmp := a.Mul(&a, &b)
-	tmp = new(fr.Element).Neg(tmp)
-	return *tmp
+	return *new(fr.Element).Neg(tmp)
 }
 
-func fr_add(a fr.Element, b fr.Element) fr.Element {
+func fr_add(api frontend.API, a fr.Element, b fr.Element) fr.Element {
 	return *a.Add(&a, &b)
 }
 
-func fr_sub(a fr.Element, b fr.Element) fr.Element {
+func fr_sub(api frontend.API, a fr.Element, b fr.Element) fr.Element {
 	//return addmod(a, q_mod - b, q_mod)
 	return *a.Sub(&a, &b)
 }
 
-func fr_div(a fr.Element, b fr.Element, aux fr.Element) fr.Element {
-	r := fr_mul(b, aux)
-	if a != r {
-		panic("div fail")
-	}
+func fr_div(api frontend.API, a fr.Element, b fr.Element, aux fr.Element) fr.Element {
+	//r := fr_mul(api, api, b, aux)
+	//log.Println(r, b, aux)
+	//if a != r {
+	//	panic("div fail")
+	//}
+
+	var d fr.Element
+	d.Div(&a, &b)
 
 	//frZero := new(fr.Element).SetUint64(0)
 	//if b.Equal(frZero) {
 	//	panic("div zero")
 	//}
-	return aux
+	return d
+}
+
+func fr_neg(a fr.Element) fr.Element {
+	return *a.Neg(&a)
+}
+
+func fr_from_string(str string) fr.Element {
+	ele, err := new(fr.Element).SetString(str)
+	if err != nil {
+		panic(err)
+	}
+	return *ele
+}
+
+func MulAdd(api frontend.API, a frontend.Variable, b frontend.Variable, c frontend.Variable) frontend.Variable {
+	result, err := api.Compiler().NewHint(MulAddHint, 2, a, b, c)
+	if err != nil {
+		panic(err)
+	}
+
+	quotient := result[0]
+	remainder := result[1]
+
+	cLimbCopy := api.Mul(c, 1)
+	lhs := api.MulAcc(cLimbCopy, a, b)
+	rhs := api.MulAcc(remainder, MODULUS, quotient)
+	api.AssertIsEqual(lhs, rhs)
+
+	return remainder
+}
+
+func MulAddHint(_ *big.Int, inputs []*big.Int, results []*big.Int) error {
+	if len(inputs) != 3 {
+		panic("MulAddHint expects 3 input operands")
+	}
+
+	for _, operand := range inputs {
+		if operand.Cmp(MODULUS) >= 0 {
+			panic(fmt.Sprintf("%s is not in the field", operand.String()))
+		}
+	}
+
+	product := new(big.Int).Mul(inputs[0], inputs[1])
+	sum := new(big.Int).Add(product, inputs[2])
+	quotient := new(big.Int).Div(sum, MODULUS)
+	remainder := new(big.Int).Rem(sum, MODULUS)
+
+	results[0] = quotient
+	results[1] = remainder
+
+	return nil
 }

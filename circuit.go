@@ -64,5 +64,13 @@ func (circuit *AggregatorCircuit) Define(api frontend.API) error {
 		return err
 	}
 
+	buf, err = VerifyProof1(api, circuit.Proof, circuit.Aux, buf)
+	if err != nil {
+		return err
+	}
+	buf, err = VerifyProof2(api, circuit.Proof, circuit.Aux, buf)
+	if err != nil {
+		return err
+	}
 	return nil
 }
