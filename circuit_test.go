@@ -2,11 +2,11 @@ package main
 
 import (
 	"fmt"
+	"github.com/consensys/gnark/frontend"
 	"math/big"
 	"testing"
 
 	"github.com/consensys/gnark-crypto/ecc"
-	"github.com/consensys/gnark-crypto/ecc/bn254/fr"
 	"github.com/consensys/gnark/test"
 	"github.com/ethereum/go-ethereum/crypto"
 	//"github.com/consensys/gnark/std/hash/sha3"
@@ -59,45 +59,46 @@ func TestOnBn254(t *testing.T) {
 func TestCircuit(t *testing.T) {
 	grkAssert := test.NewAssert(t)
 
-	var aggCircuit = AggregatorCircuit{
-		Proof:      make([]fr.Element, len(proofStr)),
-		VerifyInst: make([]fr.Element, 1),
-		Aux:        make([]fr.Element, len(auxStr)),
-		TargetInst: make([]fr.Element, 4),
-	}
+	//var aggCircuit = AggregatorCircuit{
+	//	Proof:      make([]fr.Element, len(proofStr)),
+	//	VerifyInst: make([]fr.Element, 1),
+	//	Aux:        make([]fr.Element, len(auxStr)),
+	//	TargetInst: make([]fr.Element, 4),
+	//}
 
 	var witnessCircuit = AggregatorCircuit{
-		Proof:      make([]fr.Element, len(proofStr)),
-		VerifyInst: make([]fr.Element, 1),
-		Aux:        make([]fr.Element, len(auxStr)),
-		TargetInst: make([]fr.Element, 4),
+		Proof:      make([]frontend.Variable, len(proofStr)),
+		VerifyInst: make([]frontend.Variable, 1),
+		Aux:        make([]frontend.Variable, len(auxStr)),
+		TargetInst: make([]frontend.Variable, 4),
 	}
 
 	for i := 0; i < len(proofStr); i++ {
-		//proof, _ := big.NewInt(0).SetString(proofStr[i], 10)
+		proof, _ := big.NewInt(0).SetString(proofStr[i], 10)
 		//witnessCircuit.Proof[i] = frontend.Variable(proof)
-		_, err := witnessCircuit.Proof[i].SetString(proofStr[i])
-		grkAssert.NoError(err)
+		//_, err := witnessCircuit.Proof[i].SetString(proofStr[i])
+		witnessCircuit.Proof[i] = proof
 	}
-	//verifyIns, _ := big.NewInt(0).SetString("10573525131658455000365299935369648652552518565632155338390913030155084554858", 10)
+	verifyIns, _ := big.NewInt(0).SetString("10573525131658455000365299935369648652552518565632155338390913030155084554858", 10)
 	//witnessCircuit.VerifyInst[0] = frontend.Variable(verifyIns)
-	_, err := witnessCircuit.VerifyInst[0].SetString("10573525131658455000365299935369648652552518565632155338390913030155084554858")
-	grkAssert.NoError(err)
+	//_, err := witnessCircuit.VerifyInst[0].SetString("10573525131658455000365299935369648652552518565632155338390913030155084554858")
+	witnessCircuit.VerifyInst[0] = verifyIns
+	//grkAssert.NoError(err)
 	for i := 0; i < len(auxStr); i++ {
-		//aux, _ := big.NewInt(0).SetString(auxStr[i], 10)
+		aux, _ := big.NewInt(0).SetString(auxStr[i], 10)
 		//witnessCircuit.Aux[i] = frontend.Variable(aux)
-		_, err := witnessCircuit.Aux[i].SetString(auxStr[i])
-		grkAssert.NoError(err)
+		witnessCircuit.Aux[i] = aux
+		//grkAssert.NoError(err)
 	}
 	target0, _ := big.NewInt(0).SetString("7059793422771910484", 10)
 	target1, _ := big.NewInt(0).SetString("2556686405730241944", 10)
 	target2, _ := big.NewInt(0).SetString("2133554817341762742", 10)
 	target3, _ := big.NewInt(0).SetString("8974371243071329347", 10)
-	witnessCircuit.TargetInst[0].SetBigInt(target0)
-	witnessCircuit.TargetInst[1].SetBigInt(target1)
-	witnessCircuit.TargetInst[2].SetBigInt(target2)
-	witnessCircuit.TargetInst[3].SetBigInt(target3)
+	witnessCircuit.TargetInst[0] = target0
+	witnessCircuit.TargetInst[1] = target1
+	witnessCircuit.TargetInst[2] = target2
+	witnessCircuit.TargetInst[3] = target3
 
-	err = test.IsSolved(&aggCircuit, &witnessCircuit, ecc.BN254.ScalarField())
+	err := test.IsSolved(&witnessCircuit, &witnessCircuit, ecc.BN254.ScalarField())
 	grkAssert.NoError(err)
 }

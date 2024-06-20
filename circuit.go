@@ -2,24 +2,24 @@ package main
 
 import (
 	"bytes"
+	"github.com/consensys/gnark-crypto/ecc/bn254/fp"
 	"log"
 	"math/big"
 
-	"github.com/consensys/gnark-crypto/ecc/bn254/fr"
 	"github.com/consensys/gnark/frontend"
 	"github.com/consensys/gnark/std/math/uints"
 	"github.com/ethereum/go-ethereum/crypto"
 )
 
 type AggregatorCircuit struct {
-	Proof      []fr.Element
-	VerifyInst []fr.Element
-	Aux        []fr.Element
-	TargetInst []fr.Element `gnark:",public"`
+	Proof      []frontend.Variable
+	VerifyInst []frontend.Variable
+	Aux        []frontend.Variable
+	TargetInst []frontend.Variable `gnark:",public"`
 }
 
 func (circuit *AggregatorCircuit) Define(api frontend.API) error {
-	buf := [43]fr.Element{}
+	buf := [43]frontend.Variable{}
 
 	// step 0: calc real verify instance with keccak
 	var bufLen = 0
@@ -35,15 +35,13 @@ func (circuit *AggregatorCircuit) Define(api frontend.API) error {
 
 	var hashBuf bytes.Buffer
 	for i := 0; i < bufLen; i++ {
-		input := buf[i].Bytes()
+		fpTmp, _ := new(fp.Element).SetInterface(buf[i])
+		input := fpTmp.Bytes()
 		hashBuf.Write(input[:])
 	}
 	hashValHex := crypto.Keccak256Hash(hashBuf.Bytes())
 	hashValBig := big.NewInt(0).SetBytes(hashValHex.Bytes())
-
-	q, _ := big.NewInt(0).SetString(FrModulus, 10)
-	hashMod := big.NewInt(0).Mod(hashValBig, q)
-	//log.Println("hashMod: ", hashMod)
+	log.Println("hashValBig", hashValBig)
 
 	input := uints.NewU8Array(hashBuf.Bytes())
 	hashVar := uints.NewU8Array(hashValHex.Bytes())
@@ -53,22 +51,43 @@ func (circuit *AggregatorCircuit) Define(api frontend.API) error {
 		return err
 	}
 
-	buf[2].SetBigInt(hashMod)
+	q, _ := big.NewInt(0).SetString(FrModulus, 10)
+	hashMod := big.NewInt(0).Mod(hashValBig, q)
+	log.Println("hashMod: ", hashMod)
+	buf[2] = hashMod
+
 	err = CalcVerifyCircuitLagrange(api, buf[:])
 	if err != nil {
 		return err
 	}
+
+	log.Println("CalcVerifyCircuitLagrange", buf[0], buf[1], buf[2])
 
 	err = GetChallengesShPlonkCircuit(api, buf[:], circuit.Proof)
 	if err != nil {
 		return err
 	}
 
-	buf, err = VerifyProof1(api, circuit.Proof, circuit.Aux, buf)
+	log.Println("GetChallengesShPlonkCircuit", buf[0], buf[1], buf[2])
+
+	var proofVar = make([]frontend.Variable, len(circuit.Proof))
+	for i := 0; i < len(circuit.Proof); i++ {
+		proofVar[i] = circuit.Proof[i]
+	}
+	var auxVar = make([]frontend.Variable, len(circuit.Aux))
+	for i := 0; i < len(circuit.Aux); i++ {
+		auxVar[i] = circuit.Aux[i]
+	}
+	var bufVar [len(buf)]frontend.Variable
+	for i := 0; i < len(buf); i++ {
+		bufVar[i] = buf[i]
+	}
+
+	resBuf, err := VerifyProof1(api, proofVar, auxVar, bufVar)
 	if err != nil {
 		return err
 	}
-	buf, err = VerifyProof2(api, circuit.Proof, circuit.Aux, buf)
+	resBuf, err = VerifyProof2(api, proofVar, auxVar, resBuf)
 	if err != nil {
 		return err
 	}

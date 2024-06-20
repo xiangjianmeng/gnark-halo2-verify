@@ -5,8 +5,9 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"github.com/consensys/gnark-crypto/ecc/bn254/fp"
+	"github.com/consensys/gnark/constraint/solver"
 	"github.com/consensys/gnark/std/math/emulated"
-	"log"
 	"math/big"
 	"regexp"
 	"strings"
@@ -26,13 +27,9 @@ var (
 	MODULUS   *big.Int = emulated.BN254Fr{}.Modulus()
 )
 
-type RangeCheckerType int
-
-const (
-	NATIVE_RANGE_CHECKER RangeCheckerType = iota
-	COMMIT_RANGE_CHECKER
-	BIT_DECOMP_RANGE_CHECKER
-)
+func init() {
+	solver.RegisterHint(MsmHint)
+}
 
 // BN256MsmCircuit is the circuit that performs a bn256 pairing operation
 type BN256MsmCircuit struct {
@@ -58,7 +55,7 @@ func VerifyBN256Msm(
 	res *bn254.G1Affine,
 ) error {
 	g1Point = g1Point.ScalarMultiplication(g1Point, scalar)
-	log.Println("test", g1Point.String(), res.String())
+	//log.Println("VerifyBN256Msm", g1Point.String(), res.String())
 	api.AssertIsEqual(g1Point.X, res.X)
 	api.AssertIsEqual(g1Point.Y, res.Y)
 	return nil
@@ -93,128 +90,150 @@ func VerifyBN256Add(
 	return nil
 }
 
-func CalcVerifyCircuitLagrange(api frontend.API, buf []fr.Element) error {
+func CalcVerifyCircuitLagrange(api frontend.API, buf []frontend.Variable) error {
 	x, _ := new(big.Int).SetString("13534086339230182803823178260078315691269243572458753455438283544709107378988", 10)
 	y, _ := new(big.Int).SetString("9053077977614827188269653632534212501565186534180282672519599630892718179094", 10)
 
-	buf[0] = *new(fr.Element).SetBigInt(x)
-	buf[1] = *new(fr.Element).SetBigInt(y)
-	_, err := CalcVerifyBN256Msm(api, buf)
+	res, err := CalcVerifyBN256Msm(api, x, y, buf[2])
+	buf[0] = res[0]
+	buf[1] = res[1]
 	return err
 }
 
-func CalcVerifyBN256Msm(api frontend.API, buf []fr.Element) ([2]fr.Element, error) {
+func MsmHint(_ *big.Int, inputs []*big.Int, results []*big.Int) error {
+	if len(inputs) != 3 {
+		panic("MulAddHint expects 3 input operands")
+	}
 	var blob []byte
-	bufByte0 := buf[0].Bytes()
+	bufByte0 := inputs[0].FillBytes(make([]byte, 32))
 	blob = append(blob, bufByte0[:]...)
-	bufByte1 := buf[1].Bytes()
+	bufByte1 := inputs[1].FillBytes(make([]byte, 32))
 	blob = append(blob, bufByte1[:]...)
-
 	p := new(bn256.G1)
 	_, err := p.Unmarshal(blob)
 	if err != nil {
-		return [2]fr.Element{}, err
+		return err
 	}
 	res := new(bn256.G1)
 	var scalar = new(big.Int)
-	scalar = buf[2].BigInt(scalar)
+	scalar = inputs[2]
 	res.ScalarMult(p, scalar)
 
-	var g10 = bn254.G1Affine{}
-	_, err = g10.X.SetString(buf[0].String())
+	xStr, yStr, _ := extractAndConvert(res.String())
+	results[0], _ = new(big.Int).SetString(xStr, 10)
+	results[1], _ = new(big.Int).SetString(yStr, 10)
+	return nil
+}
+
+func CalcVerifyBN256Msm(api frontend.API, x, y, k frontend.Variable) ([2]frontend.Variable, error) {
+	result, err := api.Compiler().NewHint(MsmHint, 2, x, y, k)
 	if err != nil {
 		panic(err)
 	}
-	_, err = g10.Y.SetString(buf[1].String())
+
+	var g10 = bn254.G1Affine{}
+	_, err = g10.X.SetInterface(x)
+	if err != nil {
+		panic(err)
+	}
+	_, err = g10.Y.SetInterface(y)
 	if err != nil {
 		panic(err)
 	}
 	if !g10.IsOnCurve() {
-		return [2]fr.Element{}, errors.New("bn256.G1Affine is not on curve")
+		return [2]frontend.Variable{}, errors.New("bn256.G1Affine is not on curve")
 	}
 
 	var resCircuit = bn254.G1Affine{}
-	xStr, yStr, _ := extractAndConvert(res.String())
-	_, err = resCircuit.X.SetString(xStr)
+	_, err = resCircuit.X.SetInterface(result[0])
 	if err != nil {
 		panic(err)
 	}
-	_, err = resCircuit.Y.SetString(yStr)
+	_, err = resCircuit.Y.SetInterface(result[1])
 	if err != nil {
 		panic(err)
 	}
-	productX := *new(fr.Element).SetBigInt(resCircuit.X.BigInt(new(big.Int)))
-	productY := *new(fr.Element).SetBigInt(resCircuit.Y.BigInt(new(big.Int)))
-	return [2]fr.Element{productX, productY}, VerifyBN256Msm(api, &g10, scalar, &resCircuit)
+	scalar, _ := new(fr.Element).SetInterface(k)
+	return [2]frontend.Variable{resCircuit.X.BigInt(new(big.Int)), resCircuit.Y.BigInt(new(big.Int))}, VerifyBN256Msm(api, &g10, scalar.BigInt(new(big.Int)), &resCircuit)
 }
 
-func CalcVerifyBN256Add(api frontend.API, buf []fr.Element) ([2]fr.Element, error) {
-	// TODO: sanity check
-	var blob0 []byte
-	bufByte := buf[0].Bytes()
-	blob0 = append(blob0, bufByte[:]...)
-	bufByte = buf[1].Bytes()
-	blob0 = append(blob0, bufByte[:]...)
-	p0 := new(bn256.G1)
-	_, err := p0.Unmarshal(blob0)
-	if err != nil {
-		return [2]fr.Element{}, err
+func AddHint(_ *big.Int, inputs []*big.Int, results []*big.Int) error {
+	if len(inputs) != 4 {
+		panic("MulAddHint expects 3 input operands")
 	}
 
 	var blob1 []byte
-	bufByte = buf[2].Bytes()
-	blob1 = append(blob1, bufByte[:]...)
-	bufByte = buf[3].Bytes()
-	blob1 = append(blob1, bufByte[:]...)
+	bufByte0 := inputs[0].FillBytes(make([]byte, 32))
+	blob1 = append(blob1, bufByte0[:]...)
+	bufByte1 := inputs[1].FillBytes(make([]byte, 32))
+	blob1 = append(blob1, bufByte1[:]...)
 	p1 := new(bn256.G1)
-	_, err = p1.Unmarshal(blob1)
+	_, err := p1.Unmarshal(blob1)
 	if err != nil {
-		return [2]fr.Element{}, err
+		return err
+	}
+
+	var blob2 []byte
+	bufByte2 := inputs[2].FillBytes(make([]byte, 32))
+	blob2 = append(blob2, bufByte2[:]...)
+	bufByte3 := inputs[3].FillBytes(make([]byte, 32))
+	blob2 = append(blob2, bufByte3[:]...)
+	p2 := new(bn256.G1)
+	_, err = p2.Unmarshal(blob2)
+	if err != nil {
+		return err
 	}
 
 	res := new(bn256.G1)
-	res.Add(p0, p1)
+	res = res.Add(p1, p2)
+
+	xStr, yStr, _ := extractAndConvert(res.String())
+	results[0], _ = new(big.Int).SetString(xStr, 10)
+	results[1], _ = new(big.Int).SetString(yStr, 10)
+	return nil
+}
+
+func CalcVerifyBN256Add(api frontend.API, x1, y1, x2, y2 frontend.Variable) ([2]frontend.Variable, error) {
+	result, err := api.Compiler().NewHint(AddHint, 2, x1, y1, x2, y2)
+	// TODO: sanity check
 
 	// circuit
 	var g10 = bn254.G1Affine{}
-	_, err = g10.X.SetString(buf[0].String())
+	_, err = g10.X.SetInterface(x1)
 	if err != nil {
 		panic(err)
 	}
-	_, err = g10.Y.SetString(buf[1].String())
+	_, err = g10.Y.SetInterface(y1)
 	if err != nil {
 		panic(err)
 	}
 	if !g10.IsOnCurve() {
-		return [2]fr.Element{}, errors.New("bn256.G1Affine is not on curve")
+		return [2]frontend.Variable{}, errors.New("bn256.G1Affine is not on curve")
 	}
 
 	var g11 = bn254.G1Affine{}
-	_, err = g11.X.SetString(buf[2].String())
+	_, err = g11.X.SetInterface(x2)
 	if err != nil {
 		panic(err)
 	}
-	_, err = g11.Y.SetString(buf[3].String())
+	_, err = g11.Y.SetInterface(y2)
 	if err != nil {
 		panic(err)
 	}
 	if !g11.IsOnCurve() {
-		return [2]fr.Element{}, errors.New("bn256.G1Affine is not on curve")
+		return [2]frontend.Variable{}, errors.New("bn256.G1Affine is not on curve")
 	}
 
 	var resCircuit = bn254.G1Affine{}
-	xStr, yStr, _ := extractAndConvert(res.String())
-	_, err = resCircuit.X.SetString(xStr)
+	_, err = resCircuit.X.SetInterface(result[0])
 	if err != nil {
 		panic(err)
 	}
-	_, err = resCircuit.Y.SetString(yStr)
+	_, err = resCircuit.Y.SetInterface(result[1])
 	if err != nil {
 		panic(err)
 	}
-	productX := *new(fr.Element).SetBigInt(resCircuit.X.BigInt(new(big.Int)))
-	productY := *new(fr.Element).SetBigInt(resCircuit.Y.BigInt(new(big.Int)))
-	return [2]fr.Element{productX, productY}, VerifyBN256Add(api, &g10, &g11, &resCircuit)
+	return [2]frontend.Variable{resCircuit.X.BigInt(new(big.Int)), resCircuit.Y.BigInt(new(big.Int))}, VerifyBN256Add(api, &g10, &g11, &resCircuit)
 }
 
 func extractAndConvert(input string) (string, string, error) {
@@ -324,8 +343,8 @@ func VerifySha256(
 }
 
 type CheckOnCurveCircuit struct {
-	X fr.Element
-	Y fr.Element
+	X frontend.Variable
+	Y frontend.Variable
 }
 
 func (circuit CheckOnCurveCircuit) Define(api frontend.API) error {
@@ -334,13 +353,15 @@ func (circuit CheckOnCurveCircuit) Define(api frontend.API) error {
 
 func VerifyCheckOnCurve(
 	api frontend.API,
-	x fr.Element,
-	y fr.Element,
+	x frontend.Variable,
+	y frontend.Variable,
 ) error {
 	var g1 = bn254.G1Affine{}
-	var xBig, yBig big.Int
-	g1.X.SetBigInt(x.BigInt(&xBig))
-	g1.Y.SetBigInt(y.BigInt(&yBig))
+	//var xFr, yFr fr.Element
+	xFr, _ := new(fp.Element).SetInterface(x)
+	yFr, _ := new(fp.Element).SetInterface(y)
+	g1.X.Set(xFr)
+	g1.Y.Set(yFr)
 
 	// Enforce y² = x³ + 3
 	if !g1.IsOnCurve() {
@@ -376,40 +397,42 @@ func VerifyCheckOnCurveVar(
 
 func SqueezeChallenge(
 	api frontend.API,
-	absorbing []fr.Element,
+	absorbing []frontend.Variable,
 	length int,
-) (fr.Element, error) {
+) (frontend.Variable, error) {
 	// TODO: uint256 len = length * 32 + 1;
 	qMod, _ := new(big.Int).SetString(FrModulus, 10)
-	absorbing[length].SetBigInt(new(big.Int).SetUint64(0))
+	absorbing[length] = new(big.Int).SetUint64(0)
+
 	var inputBytes []byte
 	for i := 0; i < length; i++ {
-		res := absorbing[i].Bytes()
+		//log.Println("absorbing", absorbing[i].(*big.Int).String())
+		res := absorbing[i].(*big.Int).FillBytes(make([]byte, 32))
 		inputBytes = append(inputBytes, res[:]...)
 	}
+	inputBytes = append(inputBytes, 0x0)
 	ethHashVal := sha256.Sum256(inputBytes)
 
 	inputCircuit := uints.NewU8Array(inputBytes)
 	hashValCircuit := uints.NewU8Array(ethHashVal[:])
 	err := VerifySha256(api, inputCircuit, hashValCircuit)
 	if err != nil {
-		return fr.Element{}, err
+		return nil, err
 	}
 	ethHashBig := new(big.Int).SetBytes(ethHashVal[:])
-	absorbing[0].SetBigInt(ethHashBig)
-	var ethHashMod fr.Element
-	ethHashMod.SetBigInt(ethHashBig.Mod(ethHashBig, qMod))
-	return ethHashMod, nil
+	absorbing[0] = ethHashBig
+	//log.Println("ethHashBig", ethHashBig.String())
+	return new(big.Int).Mod(ethHashBig, qMod), nil
 }
 
 func GetChallengesShPlonkCircuit(
 	api frontend.API,
-	buf []fr.Element, // buf[0..1] is instance_commitment
-	transcript []fr.Element,
+	buf []frontend.Variable, // buf[0..1] is instance_commitment
+	transcript []frontend.Variable,
 ) error {
-	var absorbing = make([]fr.Element, 112)
-	absorb0, _ := new(big.Int).SetString("17724118764413096111953866478519597650467920633612431492898416022004649110250", 10)
-	absorbing[0].SetBigInt(absorb0)
+	var absorbing = make([]frontend.Variable, 112)
+	absorb0, _ := new(big.Int).SetString("8025805240938309707562879759498205008153592202559235423490485577859843831056", 10)
+	absorbing[0] = absorb0
 
 	absorbing[1] = buf[0]
 	absorbing[2] = buf[1]
@@ -435,6 +458,7 @@ func GetChallengesShPlonkCircuit(
 	if err != nil {
 		return err
 	}
+	//log.Println("buf2", buf[2].(*big.Int).String())
 
 	pos = 1
 	for i := 0; i < 4; i++ {
@@ -449,11 +473,15 @@ func GetChallengesShPlonkCircuit(
 		pos++
 		transcriptPos++
 	}
+	//for i := 0; i < pos; i++ {
+	//	log.Println("absorbing[", i, "]", absorbing[i].(*big.Int).String())
+	//}
 	// beta
 	buf[3], err = SqueezeChallenge(api, absorbing, pos)
 	if err != nil {
 		return err
 	}
+	//log.Println("buf3", buf[3].(*big.Int).String())
 
 	pos = 1
 	// gamma
@@ -461,6 +489,7 @@ func GetChallengesShPlonkCircuit(
 	if err != nil {
 		return err
 	}
+	//log.Println("buf4", buf[4].(*big.Int).String())
 
 	pos = 1
 	for i := 0; i < 7; i++ {
@@ -480,6 +509,7 @@ func GetChallengesShPlonkCircuit(
 	if err != nil {
 		return err
 	}
+	//log.Println("buf5", buf[5].(*big.Int).String())
 
 	pos = 1
 	for i := 0; i < 3; i++ {
@@ -499,6 +529,7 @@ func GetChallengesShPlonkCircuit(
 	if err != nil {
 		return err
 	}
+	//log.Println("buf6", buf[3].(*big.Int).String())
 
 	pos = 1
 	for i := 0; i < 56; i++ {
@@ -511,6 +542,7 @@ func GetChallengesShPlonkCircuit(
 	if err != nil {
 		return err
 	}
+	//log.Println("buf7", buf[7].(*big.Int).String())
 
 	pos = 1
 	//v
@@ -518,6 +550,7 @@ func GetChallengesShPlonkCircuit(
 	if err != nil {
 		return err
 	}
+	//log.Println("buf8", buf[8].(*big.Int).String())
 
 	err = VerifyCheckOnCurve(api, transcript[transcriptPos], transcript[transcriptPos+1])
 	if err != nil {
@@ -535,121 +568,12 @@ func GetChallengesShPlonkCircuit(
 	if err != nil {
 		return err
 	}
+	//log.Println("buf9", buf[9].(*big.Int).String())
 
 	err = VerifyCheckOnCurve(api, transcript[transcriptPos], transcript[transcriptPos+1])
 	if err != nil {
 		return err
 	}
-
-	return nil
-}
-
-func ecc_mul_add(api frontend.API, buf []fr.Element, offset int) {
-	res, err := CalcVerifyBN256Msm(api, buf[offset+2:])
-	if err != nil {
-		panic(err)
-	}
-	buf[offset+2] = res[0]
-	buf[offset+3] = res[1]
-
-	res, err = CalcVerifyBN256Add(api, buf[offset:])
-	buf[offset] = res[0]
-	buf[offset+1] = res[1]
-}
-
-func fr_pow(api frontend.API, a fr.Element, power fr.Element) fr.Element {
-	return *a.Exp(a, power.BigInt(new(big.Int)))
-}
-
-func fr_mul(api frontend.API, a frontend.Variable, b frontend.Variable) fr.Element {
-	//return *a.Mul(&a, &b)
-
-	frElem := new(fr.Element)
-	frElem, err := frElem.SetInterface(api.Mul(a, b))
-	if err != nil {
-		panic(err)
-	}
-	return *frElem
-}
-
-func fr_mul_neg(api frontend.API, a fr.Element, b fr.Element) fr.Element {
-	tmp := a.Mul(&a, &b)
-	return *new(fr.Element).Neg(tmp)
-}
-
-func fr_add(api frontend.API, a fr.Element, b fr.Element) fr.Element {
-	return *a.Add(&a, &b)
-}
-
-func fr_sub(api frontend.API, a fr.Element, b fr.Element) fr.Element {
-	//return addmod(a, q_mod - b, q_mod)
-	return *a.Sub(&a, &b)
-}
-
-func fr_div(api frontend.API, a fr.Element, b fr.Element, aux fr.Element) fr.Element {
-	//r := fr_mul(api, api, b, aux)
-	//log.Println(r, b, aux)
-	//if a != r {
-	//	panic("div fail")
-	//}
-
-	var d fr.Element
-	d.Div(&a, &b)
-
-	//frZero := new(fr.Element).SetUint64(0)
-	//if b.Equal(frZero) {
-	//	panic("div zero")
-	//}
-	return d
-}
-
-func fr_neg(a fr.Element) fr.Element {
-	return *a.Neg(&a)
-}
-
-func fr_from_string(str string) fr.Element {
-	ele, err := new(fr.Element).SetString(str)
-	if err != nil {
-		panic(err)
-	}
-	return *ele
-}
-
-func MulAdd(api frontend.API, a frontend.Variable, b frontend.Variable, c frontend.Variable) frontend.Variable {
-	result, err := api.Compiler().NewHint(MulAddHint, 2, a, b, c)
-	if err != nil {
-		panic(err)
-	}
-
-	quotient := result[0]
-	remainder := result[1]
-
-	cLimbCopy := api.Mul(c, 1)
-	lhs := api.MulAcc(cLimbCopy, a, b)
-	rhs := api.MulAcc(remainder, MODULUS, quotient)
-	api.AssertIsEqual(lhs, rhs)
-
-	return remainder
-}
-
-func MulAddHint(_ *big.Int, inputs []*big.Int, results []*big.Int) error {
-	if len(inputs) != 3 {
-		panic("MulAddHint expects 3 input operands")
-	}
-
-	for _, operand := range inputs {
-		if operand.Cmp(MODULUS) >= 0 {
-			panic(fmt.Sprintf("%s is not in the field", operand.String()))
-		}
-	}
-
-	product := new(big.Int).Mul(inputs[0], inputs[1])
-	sum := new(big.Int).Add(product, inputs[2])
-	quotient := new(big.Int).Div(sum, MODULUS)
-	remainder := new(big.Int).Rem(sum, MODULUS)
-
-	results[0] = quotient
-	results[1] = remainder
 
 	return nil
 }
