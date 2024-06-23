@@ -59,13 +59,6 @@ func TestOnBn254(t *testing.T) {
 func TestCircuit(t *testing.T) {
 	grkAssert := test.NewAssert(t)
 
-	//var aggCircuit = AggregatorCircuit{
-	//	Proof:      make([]fr.Element, len(proofStr)),
-	//	VerifyInst: make([]fr.Element, 1),
-	//	Aux:        make([]fr.Element, len(auxStr)),
-	//	TargetInst: make([]fr.Element, 4),
-	//}
-
 	var witnessCircuit = AggregatorCircuit{
 		Proof:      make([]frontend.Variable, len(proofStr)),
 		VerifyInst: make([]frontend.Variable, 1),
@@ -75,20 +68,13 @@ func TestCircuit(t *testing.T) {
 
 	for i := 0; i < len(proofStr); i++ {
 		proof, _ := big.NewInt(0).SetString(proofStr[i], 10)
-		//witnessCircuit.Proof[i] = frontend.Variable(proof)
-		//_, err := witnessCircuit.Proof[i].SetString(proofStr[i])
 		witnessCircuit.Proof[i] = proof
 	}
 	verifyIns, _ := big.NewInt(0).SetString("10573525131658455000365299935369648652552518565632155338390913030155084554858", 10)
-	//witnessCircuit.VerifyInst[0] = frontend.Variable(verifyIns)
-	//_, err := witnessCircuit.VerifyInst[0].SetString("10573525131658455000365299935369648652552518565632155338390913030155084554858")
 	witnessCircuit.VerifyInst[0] = verifyIns
-	//grkAssert.NoError(err)
 	for i := 0; i < len(auxStr); i++ {
 		aux, _ := big.NewInt(0).SetString(auxStr[i], 10)
-		//witnessCircuit.Aux[i] = frontend.Variable(aux)
 		witnessCircuit.Aux[i] = aux
-		//grkAssert.NoError(err)
 	}
 	target0, _ := big.NewInt(0).SetString("7059793422771910484", 10)
 	target1, _ := big.NewInt(0).SetString("2556686405730241944", 10)

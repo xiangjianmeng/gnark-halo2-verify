@@ -45,17 +45,17 @@ func VerifyBN256Pairing(
 	return nil
 }
 
-func (c *BN256PairingCircuit) FillVerifyCircuitsG1(x1, y1, x2, y2 string) {
+func (c *BN256PairingCircuit) FillVerifyCircuitsG1(x1, y1, x2, y2 frontend.Variable) {
 	var g10 = bn254.G1Affine{}
-	_, err1 := g10.X.SetString(x1)
-	_, err2 := g10.Y.SetString(y1)
+	_, err1 := g10.X.SetInterface(x1)
+	_, err2 := g10.Y.SetInterface(y1)
 	if err1 != nil || err2 != nil || !g10.IsOnCurve() {
 		panic(fmt.Sprintf("err1 = %v, err2 = %v", err1, err2))
 	}
 
 	var g11 = bn254.G1Affine{}
-	_, err1 = g11.X.SetString(x2)
-	_, err2 = g11.Y.SetString(y2)
+	_, err1 = g11.X.SetInterface(x2)
+	_, err2 = g11.Y.SetInterface(y2)
 	if err1 != nil || err2 != nil || !g11.IsOnCurve() {
 		panic(fmt.Sprintf("err1 = %v, err2 = %v", err1, err2))
 	}

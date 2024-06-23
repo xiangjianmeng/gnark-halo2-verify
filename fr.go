@@ -3,12 +3,17 @@ package main
 import (
 	"math/big"
 
-	"github.com/consensys/gnark-crypto/ecc/bn254/fr"
 	"github.com/consensys/gnark/frontend"
 )
 
 func ecc_mul(api frontend.API, input []frontend.Variable, offset int) error {
-	if input[offset+2] == fr.One() {
+	//if input[offset+2].(*big.Int) == fr_from_string("1") {
+	//	return nil
+	//}
+	//
+	one := fr_from_string("1")
+	//cmp := api.Cmp(input[offset+2], one)
+	if input[offset+2].(*big.Int).Cmp(one.(*big.Int)) == 0 {
 		return nil
 	}
 
@@ -26,11 +31,6 @@ func ecc_mul_add(api frontend.API, buf []frontend.Variable, offset int) error {
 	if err != nil {
 		return err
 	}
-
-	//x1, _ := new(fr.Element).SetInterface(buf[offset])
-	//y1, _ := new(fr.Element).SetInterface(buf[offset+1])
-	//x2, _ := new(fr.Element).SetInterface(buf[offset+2])
-	//y2, _ := new(fr.Element).SetInterface(buf[offset+3])
 
 	res, err := CalcVerifyBN256Add(api, buf[offset], buf[offset+1], buf[offset+2], buf[offset+3])
 	buf[offset] = res[0]

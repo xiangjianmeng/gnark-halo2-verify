@@ -2,7 +2,6 @@ package main
 
 import (
 	"github.com/consensys/gnark/frontend"
-	"math/big"
 )
 
 func VerifyProof1(
@@ -11,99 +10,73 @@ func VerifyProof1(
 	aux []frontend.Variable,
 	buf [43]frontend.Variable,
 ) ([43]frontend.Variable, error) {
-	frOne := new(big.Int).SetUint64(1)
-	frOneNeg := fr_neg(api, frOne)
-
 	buf[10], buf[11] = transcript[102], transcript[103]
-	buf[12] = frOne
+	buf[12] = fr_from_string("1")
 	err := ecc_mul(api, buf[:], 10)
 	if err != nil {
-		panic(err)
+		return [43]frontend.Variable{}, err
 	}
-	constFr, _ := new(big.Int).SetString("21710372849001950800533397158415938114909991150039389063546734567764856596059", 10)
-	buf[17] = fr_mul(
-		api,
-		constFr,
+	buf[17] = fr_mul(api,
+		fr_from_string("21710372849001950800533397158415938114909991150039389063546734567764856596059"),
 		buf[6],
 	)
-	b := fr_add(api, buf[17], fr_neg(api, buf[6]))
 	buf[18] = fr_div(api,
-		frOne,
-		b,
+		fr_from_string("1"),
+		fr_add(api, buf[17], fr_neg(api, buf[6])),
 		aux[0],
 	)
-
-	constFr, _ = new(big.Int).SetString("8374374965308410102411073611984011876711565317741801500439755773472076597347", 10)
 	buf[19] = fr_mul(api,
-		*constFr,
+		fr_from_string("8374374965308410102411073611984011876711565317741801500439755773472076597347"),
 		buf[6],
 	)
-	b = fr_add(api, buf[17], fr_neg(api, buf[19]))
 	buf[20] = fr_div(api,
-		frOne,
-		b,
+		fr_from_string("1"),
+		fr_add(api, buf[17], fr_neg(api, buf[19])),
 		aux[1],
 	)
-
 	buf[21] = fr_mul(api, buf[18], buf[20])
-	b = fr_add(api, buf[6], fr_neg(api, buf[17]))
 	buf[22] = fr_div(api,
-		frOne,
-		b,
+		fr_from_string("1"),
+		fr_add(api, buf[6], fr_neg(api, buf[17])),
 		aux[2],
 	)
-
-	b = fr_add(api, buf[6], fr_neg(api, buf[19]))
 	buf[23] = fr_div(api,
-		frOne,
-		b,
+		fr_from_string("1"),
+		fr_add(api, buf[6], fr_neg(api, buf[19])),
 		aux[3],
 	)
 	buf[24] = fr_mul(api, buf[22], buf[23])
-
-	b = fr_add(api, buf[19], fr_neg(api, buf[17]))
 	buf[25] = fr_div(api,
-		frOne,
-		b,
+		fr_from_string("1"),
+		fr_add(api, buf[19], fr_neg(api, buf[17])),
 		aux[4],
 	)
-
-	b = fr_add(api, buf[19], fr_neg(api, buf[6]))
 	buf[26] = fr_div(api,
-		frOne,
-		b,
+		fr_from_string("1"),
+		fr_add(api, buf[19], fr_neg(api, buf[6])),
 		aux[5],
 	)
 	buf[27] = fr_mul(api, buf[25], buf[26])
-
-	tmp := fr_mul(api, buf[18], buf[6])
-	buf[28] = fr_neg(api, tmp)
+	buf[28] =
+		fr_neg(api, fr_mul(api, buf[18], buf[6]))
 	buf[29] = fr_mul(api, buf[20], buf[19])
-
-	tmp = fr_mul(api, buf[18], buf[29])
 	buf[18] = fr_add(api,
 		fr_mul(api, buf[28], buf[20]),
-		fr_neg(api, tmp),
+		fr_neg(api, fr_mul(api, buf[18], buf[29])),
 	)
-
-	tmp = fr_mul(api, buf[22], buf[17])
-	buf[20] = fr_neg(api, tmp)
+	buf[20] =
+		fr_neg(api, fr_mul(api, buf[22], buf[17]))
 	buf[30] = fr_mul(api, buf[23], buf[19])
-
-	tmp = fr_mul(api, buf[22], buf[30])
 	buf[22] = fr_add(api,
 		fr_mul(api, buf[20], buf[23]),
-		fr_neg(api, tmp),
+		fr_neg(api, fr_mul(api, buf[22], buf[30])),
 	)
-
-	tmp = fr_mul(api, buf[25], buf[17])
-	buf[31] = fr_neg(api, tmp)
+	buf[31] =
+		fr_neg(api, fr_mul(api, buf[25], buf[17]))
 	buf[32] = fr_mul(api, buf[26], buf[6])
-
-	tmp = fr_mul(api, buf[25], buf[30])
 	buf[25] = fr_add(api,
 		fr_mul(api, buf[31], buf[26]),
-		fr_neg(api, tmp),
+		fr_neg(api, fr_mul(api, buf[25], buf[32])),
 	)
 	buf[33] = fr_add(api,
 		fr_mul(api,
@@ -124,15 +97,9 @@ func VerifyProof1(
 			fr_mul(api, buf[25], transcript[80]),
 		),
 	)
-
-	tmp = fr_mul(api, buf[28], buf[29])
-	buf[28] = fr_neg(api, tmp)
-
-	tmp = fr_mul(api, buf[20], buf[30])
-	buf[20] = fr_neg(api, tmp)
-
-	tmp = fr_mul(api, buf[31], buf[32])
-	buf[29] = fr_neg(api, tmp)
+	buf[28] = fr_neg(api, fr_mul(api, buf[28], buf[29]))
+	buf[20] = fr_neg(api, fr_mul(api, buf[20], buf[30]))
+	buf[29] = fr_neg(api, fr_mul(api, buf[31], buf[32]))
 	buf[31] = fr_mul(api,
 		buf[7],
 		fr_add(api,
@@ -146,7 +113,6 @@ func VerifyProof1(
 			),
 		),
 	)
-
 	buf[33] = fr_add(api,
 		fr_mul(api,
 			fr_add(api,
@@ -211,28 +177,22 @@ func VerifyProof1(
 			),
 		),
 	)
-
-	constFr, _ = new(big.Int).SetString("9741553891420464328295280489650144566903017206473301385034033384879943874347", 10)
 	buf[20] = fr_mul(api,
-		*constFr,
+		fr_from_string("9741553891420464328295280489650144566903017206473301385034033384879943874347"),
 		buf[6],
 	)
-
 	buf[21] = fr_div(api,
-		frOne,
+		fr_from_string("1"),
 		fr_add(api, buf[20], fr_neg(api, buf[6])),
 		aux[6],
 	)
 	buf[22] = fr_div(api,
-		frOne,
+		fr_from_string("1"),
 		fr_add(api, buf[6], fr_neg(api, buf[20])),
 		aux[7],
 	)
-
-	tmp = fr_mul(api, buf[21], buf[6])
-	buf[24] = fr_neg(api, tmp)
-	tmp = fr_mul(api, buf[22], buf[20])
-	buf[25] = fr_neg(api, tmp)
+	buf[24] = fr_neg(api, fr_mul(api, buf[21], buf[6]))
+	buf[25] = fr_neg(api, fr_mul(api, buf[22], buf[20]))
 	buf[27] = fr_mul(api,
 		buf[7],
 		fr_add(api,
@@ -265,37 +225,28 @@ func VerifyProof1(
 			),
 		),
 	)
-
-	tmp = fr_neg(api, buf[17])
 	buf[17] = fr_add(api,
 		buf[9],
-		tmp,
+		fr_neg(api, buf[17]),
 	)
-	tmp = fr_neg(api, buf[19])
 	buf[22] = fr_add(api,
 		buf[9],
-		tmp,
+		fr_neg(api, buf[19]),
 	)
-
-	constFr, _ = new(big.Int).SetString("11211301017135681023579411905410872569206244553457844956874280139879520583390", 10)
 	buf[24] = fr_mul(api,
-		*constFr,
+		fr_from_string("11211301017135681023579411905410872569206244553457844956874280139879520583390"),
 		buf[6],
 	)
-
-	tmp = fr_neg(api, buf[24])
 	buf[25] = fr_add(api,
 		buf[9],
-		tmp,
+		fr_neg(api, buf[24]),
 	)
-
-	tmp = fr_neg(api, buf[20])
 	buf[20] = fr_add(api,
 		buf[9],
-		tmp,
+		fr_neg(api, buf[20]),
 	)
 	buf[27] = fr_div(api,
-		frOne,
+		fr_from_string("1"),
 		fr_mul(api, buf[20], buf[25]),
 		aux[8],
 	)
@@ -487,25 +438,20 @@ func VerifyProof1(
 			transcript[66],
 		),
 	)
-
-	constFr, _ = new(big.Int).SetString("21888242871839275222246405745257275088548364400416034343698204186575808495615", 10)
 	buf[33] = fr_add(api,
 		transcript[70],
-		*constFr,
+		fr_from_string("21888242871839275222246405745257275088548364400416034343698204186575808495615"),
 	)
-	constFr, _ = new(big.Int).SetString("21888242871839275222246405745257275088548364400416034343698204186575808495614", 10)
 	buf[34] = fr_add(api,
 		transcript[70],
-		*constFr,
+		fr_from_string("21888242871839275222246405745257275088548364400416034343698204186575808495614"),
 	)
-
-	tmp = fr_neg(api, transcript[52])
 	buf[35] = fr_mul(api,
 		fr_mul(api,
 			fr_mul(api,
 				fr_add(api,
 					transcript[51],
-					tmp,
+					fr_neg(api, transcript[52]),
 				),
 				transcript[70],
 			),
@@ -513,39 +459,32 @@ func VerifyProof1(
 		),
 		buf[34],
 	)
-
-	tmp = fr_neg(api, transcript[53])
-	product := fr_mul(api, transcript[54], new(big.Int).SetUint64(262144))
-	tmp1 := fr_neg(api, product)
 	buf[36] = fr_add(api,
 		fr_add(api,
 			transcript[51],
-			tmp,
+			fr_neg(api, transcript[53]),
 		),
-		tmp1,
+		fr_neg(api, fr_mul(api, transcript[54], fr_from_string("262144"))),
 	)
-
 	buf[37] = fr_mul(api,
 		fr_add(api,
 			fr_add(api,
 				buf[36],
-				fr_mul_neg(api,
+				fr_neg(api, fr_mul(api,
 					transcript[52],
-					new(big.Int).SetUint64(68719476736),
-				),
+					fr_from_string("68719476736"),
+				)),
 			),
-			fr_mul_neg(api,
+			fr_neg(api, fr_mul(api,
 				transcript[55],
-				new(big.Int).SetUint64(18014398509481984),
-			),
+				fr_from_string("18014398509481984"),
+			)),
 		),
 		transcript[70],
 	)
-
-	constFr, _ = new(big.Int).SetString("21888242871839275222246405745257275088548364400416034343698204186575808495616", 10)
 	buf[38] = fr_add(api,
 		transcript[70],
-		*constFr,
+		fr_from_string("21888242871839275222246405745257275088548364400416034343698204186575808495616"),
 	)
 	buf[31] = fr_mul(api,
 		fr_add(api,
@@ -563,56 +502,46 @@ func VerifyProof1(
 		),
 		buf[5],
 	)
-
-	constFr, _ = new(big.Int).SetString("68719476736", 10)
-	constFr1, _ := new(big.Int).SetString("18014398509481984", 10)
-	constFr2, _ := new(big.Int).SetString("4722366482869645213696", 10)
 	buf[34] = fr_add(api,
 		fr_add(api,
 			fr_add(api,
 				buf[36],
-				fr_mul_neg(api,
+				fr_neg(api, fr_mul(api,
 					transcript[56],
-					*constFr,
-				),
+					fr_from_string("68719476736"),
+				)),
 			),
-			fr_mul_neg(api,
+			fr_neg(api, fr_mul(api,
 				transcript[52],
-				*constFr1,
-			),
+				fr_from_string("18014398509481984"),
+			)),
 		),
-		fr_mul_neg(api,
+		fr_neg(api, fr_mul(api,
 			transcript[55],
-			*constFr2,
-		),
+			fr_from_string("4722366482869645213696"),
+		)),
 	)
-
-	constFr, _ = new(big.Int).SetString("1237940039285380274899124224", 10)
 	buf[34] = fr_mul(api,
 		fr_mul(api,
 			fr_add(api,
 				buf[34],
-				fr_mul_neg(api,
+				fr_neg(api, fr_mul(api,
 					transcript[57],
-					*constFr,
-				),
+					fr_from_string("1237940039285380274899124224"),
+				)),
 			),
 			transcript[70],
 		),
 		buf[38],
 	)
-
-	constFr, _ = new(big.Int).SetString("8388608", 10)
-	buf[35] = fr_pow(api, buf[6], constFr)
-	buf[36] = fr_add(api, buf[35], frOneNeg)
-
-	constFr, _ = new(big.Int).SetString("21888240262557392955334514970720457388010314637169927192662615958087340972065", 10)
+	buf[35] = fr_pow(api, buf[6], fr_from_string("8388608"))
+	buf[36] = fr_add(api, buf[35], fr_neg(api, fr_from_string("1")))
 	buf[37] = fr_div(api,
 		fr_mul(api,
-			constFr,
+			fr_from_string("21888240262557392955334514970720457388010314637169927192662615958087340972065"),
 			buf[36],
 		),
-		fr_add(api, buf[6], frOneNeg),
+		fr_add(api, buf[6], fr_neg(api, fr_from_string("1"))),
 		aux[9],
 	)
 	buf[31] = fr_mul(api,
@@ -627,14 +556,13 @@ func VerifyProof1(
 			fr_mul(api,
 				buf[37],
 				fr_add(api,
-					frOne,
+					fr_from_string("1"),
 					fr_neg(api, transcript[79]),
 				),
 			),
 		),
 		buf[5],
 	)
-
 	buf[33] = fr_div(api,
 		fr_mul(api,
 			fr_from_string("4976187549286291281196346419790865785215437125361463174887299780224677482739"),
@@ -701,7 +629,7 @@ func VerifyProof1(
 				transcript[80],
 			),
 		),
-		fr_mul_neg(api,
+		fr_neg(api, fr_mul(api,
 			fr_add(api,
 				buf[34],
 				fr_mul(api,
@@ -713,7 +641,7 @@ func VerifyProof1(
 				fr_add(api, buf[38], buf[39]),
 				transcript[79],
 			),
-		),
+		)),
 	)
 	buf[38] = fr_add(api,
 		fr_add(api,
@@ -766,7 +694,7 @@ func VerifyProof1(
 		),
 	)
 	buf[38] = fr_add(api,
-		frOne,
+		fr_from_string("1"),
 		fr_neg(api, fr_add(api,
 			buf[33],
 			fr_add(api,
@@ -783,8 +711,8 @@ func VerifyProof1(
 					aux[15],
 				),
 			),
-		),
-		))
+		)),
+	)
 	buf[31] = fr_add(api,
 		fr_mul(api,
 			fr_add(api,
@@ -803,10 +731,8 @@ func VerifyProof1(
 	)
 	buf[34] = fr_add(api, transcript[48], buf[4])
 	buf[40] = fr_add(api, transcript[47], buf[4])
-
-	constFr, _ = new(big.Int).SetString("4131629893567559867359510883348571134090853742863529169391034518566172092834", 10)
 	buf[41] = fr_pow(api,
-		constFr,
+		fr_from_string("4131629893567559867359510883348571134090853742863529169391034518566172092834"),
 		fr_from_string("2"),
 	)
 	buf[41] = fr_mul(api, buf[39], buf[41])
@@ -836,8 +762,8 @@ func VerifyProof1(
 				fr_add(api, buf[40], buf[41]),
 				transcript[82],
 			),
-		),
-		))
+		)),
+	)
 	buf[40] = fr_add(api, transcript[51], buf[4])
 	buf[41] = fr_add(api, transcript[49], buf[4])
 	buf[42] = fr_pow(api,
@@ -871,8 +797,8 @@ func VerifyProof1(
 				fr_add(api, buf[41], buf[42]),
 				transcript[85],
 			),
-		),
-		))
+		)),
+	)
 	buf[31] = fr_mul(api,
 		fr_add(api,
 			fr_mul(api,
@@ -920,7 +846,7 @@ func VerifyProof1(
 				fr_mul(api,
 					buf[37],
 					fr_add(api,
-						frOne,
+						fr_from_string("1"),
 						fr_neg(api, transcript[90]),
 					),
 				),

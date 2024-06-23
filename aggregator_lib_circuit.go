@@ -13,7 +13,6 @@ import (
 	"strings"
 
 	"github.com/consensys/gnark-crypto/ecc/bn254"
-	"github.com/consensys/gnark-crypto/ecc/bn254/fr"
 	"github.com/consensys/gnark/frontend"
 	"github.com/consensys/gnark/std/hash/sha2"
 	"github.com/consensys/gnark/std/hash/sha3"
@@ -115,9 +114,7 @@ func MsmHint(_ *big.Int, inputs []*big.Int, results []*big.Int) error {
 		return err
 	}
 	res := new(bn256.G1)
-	var scalar = new(big.Int)
-	scalar = inputs[2]
-	res.ScalarMult(p, scalar)
+	res.ScalarMult(p, inputs[2])
 
 	xStr, yStr, _ := extractAndConvert(res.String())
 	results[0], _ = new(big.Int).SetString(xStr, 10)
@@ -153,8 +150,8 @@ func CalcVerifyBN256Msm(api frontend.API, x, y, k frontend.Variable) ([2]fronten
 	if err != nil {
 		panic(err)
 	}
-	scalar, _ := new(fr.Element).SetInterface(k)
-	return [2]frontend.Variable{resCircuit.X.BigInt(new(big.Int)), resCircuit.Y.BigInt(new(big.Int))}, VerifyBN256Msm(api, &g10, scalar.BigInt(new(big.Int)), &resCircuit)
+	//return [2]frontend.Variable{result[0], result[1]}, VerifyBN256Msm(api, &g10, k.(*big.Int), &resCircuit)
+	return [2]frontend.Variable{resCircuit.X.BigInt(new(big.Int)), resCircuit.Y.BigInt(new(big.Int))}, VerifyBN256Msm(api, &g10, k.(*big.Int), &resCircuit)
 }
 
 func AddHint(_ *big.Int, inputs []*big.Int, results []*big.Int) error {
@@ -575,5 +572,25 @@ func GetChallengesShPlonkCircuit(
 		return err
 	}
 
+	return nil
+}
+
+func VerifyNotZero(api frontend.API, x frontend.Variable) error {
+	notZero, err := api.Compiler().NewHint(isNonZero, 1, x)
+	if err != nil {
+		return err
+	}
+	api.AssertIsBoolean(notZero[0])
+	api.AssertIsEqual(api.Mul(x, notZero[0]), x)
+	return nil
+}
+
+func isNonZero(_ *big.Int, inputs []*big.Int, results []*big.Int) error {
+	x := inputs[0]
+	if x.Sign() == 0 {
+		results[0].SetInt64(2)
+	} else {
+		results[0].SetInt64(1)
+	}
 	return nil
 }

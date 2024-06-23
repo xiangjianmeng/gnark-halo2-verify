@@ -39,6 +39,7 @@ func (circuit *AggregatorCircuit) Define(api frontend.API) error {
 		input := fpTmp.Bytes()
 		hashBuf.Write(input[:])
 	}
+
 	hashValHex := crypto.Keccak256Hash(hashBuf.Bytes())
 	hashValBig := big.NewInt(0).SetBytes(hashValHex.Bytes())
 	log.Println("hashValBig", hashValBig)
@@ -67,29 +68,45 @@ func (circuit *AggregatorCircuit) Define(api frontend.API) error {
 	if err != nil {
 		return err
 	}
+	//log.Println("GetChallengesShPlonkCircuit", "\n", buf[0], "\n", buf[1], "\n", buf[2], "\n", buf[3], "\n", buf[4], "\n", buf[5], "\n", buf[6], "\n", buf[7], "\n", buf[8], "\n", buf[9])
 
-	log.Println("GetChallengesShPlonkCircuit", buf[0], buf[1], buf[2])
-
-	var proofVar = make([]frontend.Variable, len(circuit.Proof))
-	for i := 0; i < len(circuit.Proof); i++ {
-		proofVar[i] = circuit.Proof[i]
-	}
-	var auxVar = make([]frontend.Variable, len(circuit.Aux))
-	for i := 0; i < len(circuit.Aux); i++ {
-		auxVar[i] = circuit.Aux[i]
-	}
-	var bufVar [len(buf)]frontend.Variable
-	for i := 0; i < len(buf); i++ {
-		bufVar[i] = buf[i]
-	}
-
-	resBuf, err := VerifyProof1(api, proofVar, auxVar, bufVar)
+	buf, err = VerifyProof1(api, circuit.Proof, circuit.Aux, buf)
 	if err != nil {
 		return err
 	}
-	resBuf, err = VerifyProof2(api, proofVar, auxVar, resBuf)
+
+	buf, err = VerifyProof2(api, circuit.Proof, circuit.Aux, buf)
 	if err != nil {
 		return err
 	}
-	return nil
+
+	buf, err = VerifyProof3(api, circuit.Proof, circuit.Aux, buf)
+	if err != nil {
+		return err
+	}
+
+	err = VerifyNotZero(api, buf[10])
+	if err != nil {
+		return err
+	}
+	err = VerifyNotZero(api, buf[11])
+	if err != nil {
+		return err
+	}
+	err = VerifyNotZero(api, buf[12])
+	if err != nil {
+		return err
+	}
+	err = VerifyNotZero(api, buf[13])
+	if err != nil {
+		return err
+	}
+
+	witnessCircuit := BN256PairingCircuit{}
+	witnessCircuit.FillVerifyCircuitsG1(
+		buf[10], buf[11], buf[12], buf[13],
+	)
+	witnessCircuit.FillVerifyCircuitsG2()
+	err = VerifyBN256Pairing(api, witnessCircuit.G1Points[:], witnessCircuit.G2Points[:])
+	return err
 }
