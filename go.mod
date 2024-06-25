@@ -1,4 +1,4 @@
-module awesomeProject
+module gnark-halo2-verify
 
 go 1.21
 
