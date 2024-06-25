@@ -5,17 +5,17 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
-	"github.com/consensys/gnark-crypto/ecc/bn254/fp"
-	"github.com/consensys/gnark/constraint/solver"
-	"github.com/consensys/gnark/std/math/emulated"
 	"math/big"
 	"regexp"
 	"strings"
 
 	"github.com/consensys/gnark-crypto/ecc/bn254"
+	"github.com/consensys/gnark-crypto/ecc/bn254/fp"
+	"github.com/consensys/gnark/constraint/solver"
 	"github.com/consensys/gnark/frontend"
 	"github.com/consensys/gnark/std/hash/sha2"
 	"github.com/consensys/gnark/std/hash/sha3"
+	"github.com/consensys/gnark/std/math/emulated"
 	"github.com/consensys/gnark/std/math/uints"
 	"github.com/ethereum/go-ethereum/crypto/bn256"
 )
@@ -122,7 +122,7 @@ func MsmHint(_ *big.Int, inputs []*big.Int, results []*big.Int) error {
 	return nil
 }
 
-func CalcVerifyBN256Msm(api frontend.API, x, y, k frontend.Variable) ([2]frontend.Variable, error) {
+func CalcVerifyBN256Msm1(api frontend.API, x, y, k frontend.Variable) ([2]frontend.Variable, error) {
 	result, err := api.Compiler().NewHint(MsmHint, 2, x, y, k)
 	if err != nil {
 		panic(err)
@@ -152,6 +152,40 @@ func CalcVerifyBN256Msm(api frontend.API, x, y, k frontend.Variable) ([2]fronten
 	}
 	//return [2]frontend.Variable{result[0], result[1]}, VerifyBN256Msm(api, &g10, k.(*big.Int), &resCircuit)
 	return [2]frontend.Variable{resCircuit.X.BigInt(new(big.Int)), resCircuit.Y.BigInt(new(big.Int))}, VerifyBN256Msm(api, &g10, k.(*big.Int), &resCircuit)
+}
+
+func CalcVerifyBN256Msm(api frontend.API, x, y, k frontend.Variable) ([2]frontend.Variable, error) {
+	result, err := api.Compiler().NewHint(MsmHint, 2, x, y, k)
+	if err != nil {
+		panic(err)
+	}
+
+	//var g10 = bn254.G1Affine{}
+	//_, err = g10.X.SetInterface(x)
+	//if err != nil {
+	//	panic(err)
+	//}
+	//_, err = g10.Y.SetInterface(y)
+	//if err != nil {
+	//	panic(err)
+	//}
+	//if !g10.IsOnCurve() {
+	//	return [2]frontend.Variable{}, errors.New("bn256.G1Affine is not on curve")
+	//}
+
+	var resCircuit = bn254.G1Affine{}
+	_, err = resCircuit.X.SetInterface(result[0])
+	if err != nil {
+		panic(err)
+	}
+	_, err = resCircuit.Y.SetInterface(result[1])
+	if err != nil {
+		panic(err)
+	}
+	//return [2]frontend.Variable{result[0], result[1]}, VerifyBN256Msm(api, &g10, k.(*big.Int), &resCircuit)
+	expectedX, expectedY := resCircuit.X.BigInt(new(big.Int)), resCircuit.Y.BigInt(new(big.Int))
+	err = VerifyBN254MultiScalarMul(api, [2]frontend.Variable{x, y}, k, [2]frontend.Variable{expectedX, expectedY})
+	return [2]frontend.Variable{expectedX, expectedY}, err
 }
 
 func AddHint(_ *big.Int, inputs []*big.Int, results []*big.Int) error {
@@ -576,12 +610,12 @@ func GetChallengesShPlonkCircuit(
 }
 
 func VerifyNotZero(api frontend.API, x frontend.Variable) error {
-	notZero, err := api.Compiler().NewHint(isNonZero, 1, x)
-	if err != nil {
-		return err
-	}
-	api.AssertIsBoolean(notZero[0])
-	api.AssertIsEqual(api.Mul(x, notZero[0]), x)
+	//notZero, err := api.Compiler().NewHint(isNonZero, 1, x)
+	//if err != nil {
+	//	return err
+	//}
+	api.AssertIsLessOrEqual(1, x)
+	//api.AssertIsEqual(api.Mul(x, notZero[0]), x)
 	return nil
 }
 
@@ -592,5 +626,17 @@ func isNonZero(_ *big.Int, inputs []*big.Int, results []*big.Int) error {
 	} else {
 		results[0].SetInt64(1)
 	}
+	return nil
+}
+
+type RangeCheckCircuit struct {
+	X   frontend.Variable `gnark:",public"` // 待检查的变量
+	Min frontend.Variable
+	Max frontend.Variable
+}
+
+func VerifyRangeCheck(api frontend.API, x frontend.Variable, Min frontend.Variable, Max frontend.Variable) error {
+	api.AssertIsLessOrEqual(Min, x)
+	api.AssertIsLessOrEqual(x, Max)
 	return nil
 }

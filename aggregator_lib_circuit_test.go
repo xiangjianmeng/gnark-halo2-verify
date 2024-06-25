@@ -28,9 +28,11 @@ func TestMsmSolve(t *testing.T) {
 	_, err := p.Unmarshal(blob)
 	assert.NoError(err)
 
+	log.Println(p.String())
+
 	scalar, _ := new(big.Int).SetString("21018549926786911420919261871844456760738199621624594828144407595472474813958", 10)
 	res := new(bn256.G1)
-	res.ScalarMult(p, new(big.Int).SetBytes(scalar.FillBytes(make([]byte, 32))))
+	res.ScalarMult(p, scalar)
 
 	var g10 = bn254.G1Affine{}
 	_, err = g10.X.SetString(x.String())
@@ -43,8 +45,11 @@ func TestMsmSolve(t *testing.T) {
 	}
 	assert.True(g10.IsOnCurve())
 
-	var resCircuit = bn254.G1Affine{}
 	xStr, yStr, _ := extractAndConvert(res.String())
+
+	log.Println(xStr, yStr)
+
+	var resCircuit = bn254.G1Affine{}
 	_, err = resCircuit.X.SetString(xStr)
 	assert.NoError(err)
 	_, err = resCircuit.Y.SetString(yStr)
