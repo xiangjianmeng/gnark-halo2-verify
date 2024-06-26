@@ -88,3 +88,7 @@ func TestCircuit(t *testing.T) {
 	err := test.IsSolved(&witnessCircuit, &witnessCircuit, ecc.BN254.ScalarField())
 	grkAssert.NoError(err)
 }
+
+func TestCompileCircuit(t *testing.T) {
+
+}

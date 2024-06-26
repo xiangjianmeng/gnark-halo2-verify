@@ -28,6 +28,8 @@ var (
 
 func init() {
 	solver.RegisterHint(MsmHint)
+	solver.RegisterHint(AddHint)
+	solver.RegisterHint(Keccak256Hint)
 }
 
 // BN256MsmCircuit is the circuit that performs a bn256 pairing operation
@@ -159,32 +161,18 @@ func CalcVerifyBN256Msm(api frontend.API, x, y, k frontend.Variable) ([2]fronten
 	if err != nil {
 		panic(err)
 	}
-
-	//var g10 = bn254.G1Affine{}
-	//_, err = g10.X.SetInterface(x)
+	//var resCircuit = bn254.G1Affine{}
+	//_, err = resCircuit.X.SetInterface(result[0])
 	//if err != nil {
 	//	panic(err)
 	//}
-	//_, err = g10.Y.SetInterface(y)
+	//_, err = resCircuit.Y.SetInterface(result[1])
 	//if err != nil {
 	//	panic(err)
 	//}
-	//if !g10.IsOnCurve() {
-	//	return [2]frontend.Variable{}, errors.New("bn256.G1Affine is not on curve")
-	//}
-
-	var resCircuit = bn254.G1Affine{}
-	_, err = resCircuit.X.SetInterface(result[0])
-	if err != nil {
-		panic(err)
-	}
-	_, err = resCircuit.Y.SetInterface(result[1])
-	if err != nil {
-		panic(err)
-	}
 	//return [2]frontend.Variable{result[0], result[1]}, VerifyBN256Msm(api, &g10, k.(*big.Int), &resCircuit)
-	expectedX, expectedY := resCircuit.X.BigInt(new(big.Int)), resCircuit.Y.BigInt(new(big.Int))
-	err = VerifyBN254MultiScalarMul(api, [2]frontend.Variable{x, y}, k, [2]frontend.Variable{expectedX, expectedY})
+	expectedX, expectedY := mod(api, result[0]), mod(api, result[1])
+	err = VerifyBN254ScalarMul(api, [2]frontend.Variable{x, y}, k, [2]frontend.Variable{expectedX, expectedY})
 	return [2]frontend.Variable{expectedX, expectedY}, err
 }
 
@@ -224,7 +212,7 @@ func AddHint(_ *big.Int, inputs []*big.Int, results []*big.Int) error {
 	return nil
 }
 
-func CalcVerifyBN256Add(api frontend.API, x1, y1, x2, y2 frontend.Variable) ([2]frontend.Variable, error) {
+func CalcVerifyBN256Add1(api frontend.API, x1, y1, x2, y2 frontend.Variable) ([2]frontend.Variable, error) {
 	result, err := api.Compiler().NewHint(AddHint, 2, x1, y1, x2, y2)
 	// TODO: sanity check
 
@@ -264,7 +252,15 @@ func CalcVerifyBN256Add(api frontend.API, x1, y1, x2, y2 frontend.Variable) ([2]
 	if err != nil {
 		panic(err)
 	}
+
 	return [2]frontend.Variable{resCircuit.X.BigInt(new(big.Int)), resCircuit.Y.BigInt(new(big.Int))}, VerifyBN256Add(api, &g10, &g11, &resCircuit)
+}
+
+func CalcVerifyBN256Add(api frontend.API, x1, y1, x2, y2 frontend.Variable) ([2]frontend.Variable, error) {
+	result, err := api.Compiler().NewHint(AddHint, 2, x1, y1, x2, y2)
+	expectedX, expectedY := mod(api, result[0]), mod(api, result[1])
+	err = VerifyBN254Add(api, [2]frontend.Variable{x1, y1}, [2]frontend.Variable{x2, y2}, [2]frontend.Variable{expectedX, expectedY})
+	return [2]frontend.Variable{expectedX, expectedY}, err
 }
 
 func extractAndConvert(input string) (string, string, error) {
@@ -489,7 +485,6 @@ func GetChallengesShPlonkCircuit(
 	if err != nil {
 		return err
 	}
-	//log.Println("buf2", buf[2].(*big.Int).String())
 
 	pos = 1
 	for i := 0; i < 4; i++ {
@@ -504,15 +499,12 @@ func GetChallengesShPlonkCircuit(
 		pos++
 		transcriptPos++
 	}
-	//for i := 0; i < pos; i++ {
-	//	log.Println("absorbing[", i, "]", absorbing[i].(*big.Int).String())
-	//}
+
 	// beta
 	buf[3], err = SqueezeChallenge(api, absorbing, pos)
 	if err != nil {
 		return err
 	}
-	//log.Println("buf3", buf[3].(*big.Int).String())
 
 	pos = 1
 	// gamma
@@ -520,7 +512,6 @@ func GetChallengesShPlonkCircuit(
 	if err != nil {
 		return err
 	}
-	//log.Println("buf4", buf[4].(*big.Int).String())
 
 	pos = 1
 	for i := 0; i < 7; i++ {
@@ -540,7 +531,6 @@ func GetChallengesShPlonkCircuit(
 	if err != nil {
 		return err
 	}
-	//log.Println("buf5", buf[5].(*big.Int).String())
 
 	pos = 1
 	for i := 0; i < 3; i++ {
@@ -560,7 +550,6 @@ func GetChallengesShPlonkCircuit(
 	if err != nil {
 		return err
 	}
-	//log.Println("buf6", buf[3].(*big.Int).String())
 
 	pos = 1
 	for i := 0; i < 56; i++ {
@@ -573,7 +562,6 @@ func GetChallengesShPlonkCircuit(
 	if err != nil {
 		return err
 	}
-	//log.Println("buf7", buf[7].(*big.Int).String())
 
 	pos = 1
 	//v
@@ -581,7 +569,6 @@ func GetChallengesShPlonkCircuit(
 	if err != nil {
 		return err
 	}
-	//log.Println("buf8", buf[8].(*big.Int).String())
 
 	err = VerifyCheckOnCurve(api, transcript[transcriptPos], transcript[transcriptPos+1])
 	if err != nil {
@@ -599,7 +586,6 @@ func GetChallengesShPlonkCircuit(
 	if err != nil {
 		return err
 	}
-	//log.Println("buf9", buf[9].(*big.Int).String())
 
 	err = VerifyCheckOnCurve(api, transcript[transcriptPos], transcript[transcriptPos+1])
 	if err != nil {
@@ -616,16 +602,6 @@ func VerifyNotZero(api frontend.API, x frontend.Variable) error {
 	//}
 	api.AssertIsLessOrEqual(1, x)
 	//api.AssertIsEqual(api.Mul(x, notZero[0]), x)
-	return nil
-}
-
-func isNonZero(_ *big.Int, inputs []*big.Int, results []*big.Int) error {
-	x := inputs[0]
-	if x.Sign() == 0 {
-		results[0].SetInt64(2)
-	} else {
-		results[0].SetInt64(1)
-	}
 	return nil
 }
 

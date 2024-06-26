@@ -20,6 +20,9 @@ type AggregatorCircuit struct {
 
 func (circuit *AggregatorCircuit) Define(api frontend.API) error {
 	buf := [43]frontend.Variable{}
+	for i := 0; i < 43; i++ {
+		buf[i] = new(big.Int).SetUint64(0)
+	}
 
 	// step 0: calc real verify instance with keccak
 	var bufLen = 0
@@ -33,27 +36,37 @@ func (circuit *AggregatorCircuit) Define(api frontend.API) error {
 		bufLen++
 	}
 
-	var hashBuf bytes.Buffer
-	for i := 0; i < bufLen; i++ {
-		fpTmp, _ := new(fp.Element).SetInterface(buf[i])
-		input := fpTmp.Bytes()
-		hashBuf.Write(input[:])
-	}
+	//var hashBuf bytes.Buffer
+	//for i := 0; i < bufLen; i++ {
+	//	fpTmp, err := new(fp.Element).SetInterface(buf[i])
+	//	if err != nil {
+	//		return err
+	//	}
+	//	input := fpTmp.Bytes()
+	//	hashBuf.Write(input[:])
+	//}
+	//
+	//hashValHex := crypto.Keccak256Hash(hashBuf.Bytes())
+	//hashValBig := big.NewInt(0).SetBytes(hashValHex.Bytes())
+	//log.Println("hashValBig", hashValBig)
+	//
+	//input := uints.NewU8Array(hashBuf.Bytes())
+	//hashVar := uints.NewU8Array(hashValHex.Bytes())
+	//err := VerifyKeccak256(api, input, hashVar)
+	//if err != nil {
+	//	log.Println(err)
+	//	return err
+	//}
 
-	hashValHex := crypto.Keccak256Hash(hashBuf.Bytes())
-	hashValBig := big.NewInt(0).SetBytes(hashValHex.Bytes())
-	log.Println("hashValBig", hashValBig)
-
-	input := uints.NewU8Array(hashBuf.Bytes())
-	hashVar := uints.NewU8Array(hashValHex.Bytes())
-	err := VerifyKeccak256(api, input, hashVar)
+	hashValBig, err := VerifyInstanceHash(api, buf[:bufLen])
 	if err != nil {
 		log.Println(err)
 		return err
 	}
 
-	q, _ := big.NewInt(0).SetString(FrModulus, 10)
-	hashMod := big.NewInt(0).Mod(hashValBig, q)
+	//q, _ := big.NewInt(0).SetString(FrModulus, 10)
+	//hashMod := big.NewInt(0).Mod(hashValBig, q)
+	hashMod := mod(api, hashValBig)
 	log.Println("hashMod: ", hashMod)
 	buf[2] = hashMod
 
@@ -109,4 +122,63 @@ func (circuit *AggregatorCircuit) Define(api frontend.API) error {
 	witnessCircuit.FillVerifyCircuitsG2()
 	err = VerifyBN256Pairing(api, witnessCircuit.G1Points[:], witnessCircuit.G2Points[:])
 	return err
+}
+
+func VerifyInstanceHash(api frontend.API, inputs []frontend.Variable) (frontend.Variable, error) {
+	length := 32 * (len(inputs) + 1)
+	result, err := api.Compiler().NewHint(Keccak256Hint, 1+length, inputs...)
+	if err != nil {
+		return nil, err
+	}
+
+	//scalarBits := api.ToBinary(result[0], 256)
+	binaryF, err := uints.New[uints.U32](api)
+	if err != nil {
+		return nil, err
+	}
+
+	var hashU8Array, inputU8Array []uints.U8
+	for i := 1; i < 33; i++ {
+		hashU8Array = append(hashU8Array, binaryF.ByteValueOf(result[i]))
+	}
+
+	for i := 33; i < length+1; i++ {
+		inputU8Array = append(inputU8Array, binaryF.ByteValueOf(result[i]))
+	}
+
+	//input := uints.NewU8Array(result[0].(*big.Int).Bytes())
+	//hashVar := uints.NewU8Array(result[0].(*big.Int).Bytes())
+	err = VerifyKeccak256(api, inputU8Array, hashU8Array)
+	log.Println(err)
+	return PackUInt8Variables(api, result[1:33]...), err
+	//return result[0], err
+}
+
+func Keccak256Hint(_ *big.Int, inputs []*big.Int, results []*big.Int) error {
+	var hashBuf bytes.Buffer
+	for i := 0; i < len(inputs); i++ {
+		fpEle := new(fp.Element).SetBigInt(inputs[i])
+		input := fpEle.Bytes()
+		hashBuf.Write(input[:])
+	}
+	hashValHex := crypto.Keccak256Hash(hashBuf.Bytes())
+	hashValBig := big.NewInt(0).SetBytes(hashValHex.Bytes())
+	//log.Println("hashBuf.Bytes()", hashBuf.Bytes())
+	//log.Println("hashValBig", hashValBig)
+	//log.Println("hashValHex", hashValHex.Bytes())
+
+	//results[0] = big.NewInt(0).SetBytes(hashBuf.Bytes())
+	results[0] = hashValBig
+	i := 1
+	for _, bigByte := range hashValHex.Bytes() {
+		results[i] = new(big.Int).SetBytes([]byte{bigByte})
+		i++
+	}
+
+	for _, bigByte := range hashBuf.Bytes() {
+		results[i] = new(big.Int).SetBytes([]byte{bigByte})
+		i++
+	}
+
+	return nil
 }

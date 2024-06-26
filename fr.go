@@ -11,11 +11,12 @@ func ecc_mul(api frontend.API, input []frontend.Variable, offset int) error {
 	//	return nil
 	//}
 	//
-	one := fr_from_string("1")
-	//cmp := api.Cmp(input[offset+2], one)
-	if input[offset+2].(*big.Int).Cmp(one.(*big.Int)) == 0 {
-		return nil
-	}
+	//one := fr_from_string("1")
+	//api.IsZero(api.Sub(input[offset+2], one))
+	////cmp := api.Cmp(input[offset+2], one)
+	//if input[offset+2].(*big.Int).Cmp(one.(*big.Int)) == 0 {
+	//	return nil
+	//}
 
 	res, err := CalcVerifyBN256Msm(api, input[offset], input[offset+1], input[offset+2])
 	if err != nil {
@@ -54,11 +55,22 @@ func fr_mul(api frontend.API, a frontend.Variable, b frontend.Variable) frontend
 }
 
 func mod(api frontend.API, a frontend.Variable) frontend.Variable {
-	aInt := a.(*big.Int)
-	d := new(big.Int).Div(aInt, MODULUS)
-	r := new(big.Int).Mod(aInt, MODULUS)
-	api.AssertIsEqual(api.Add(r, api.Mul(d, MODULUS)), a)
-	return r
+	results, err := api.Compiler().NewHint(modHint, 2, a)
+	if err != nil {
+		return err
+	}
+	api.AssertIsEqual(api.Add(results[1], api.Mul(results[0], MODULUS)), a)
+	return results[1]
+}
+
+func modHint(_ *big.Int, inputs []*big.Int, results []*big.Int) error {
+	d := new(big.Int).Div(inputs[0], MODULUS)
+	r := new(big.Int).Mod(inputs[0], MODULUS)
+
+	results[0] = d
+	results[1] = r
+
+	return nil
 }
 
 func fr_mul_neg(api frontend.API, a frontend.Variable, b frontend.Variable) frontend.Variable {

@@ -48,14 +48,6 @@ func TestMultiScalarMul(t *testing.T) {
 	assert.True(g10.IsOnCurve())
 
 	nbLen := 1
-	//P := make([]bn254.G1Affine, nbLen)
-	//S := make([]fr.Element, nbLen)
-	//for i := 0; i < nbLen; i++ {
-	//	S[i].SetRandom()
-	//	P[i].ScalarMultiplicationBase(S[i].BigInt(new(big.Int)))
-	//}
-
-	//g10.ScalarMultiplication(&g10, scalar)
 	S := []fr.Element{*new(fr.Element).SetBigInt(scalar)}
 	P := []bn254.G1Affine{g10}
 	var res bn254.G1Affine
@@ -115,12 +107,12 @@ func TestBN254MultiScalarMul(t *testing.T) {
 
 	assert.NoError(err)
 
-	assignment := BN254MultiScalarMul{
+	assignment := BN254ScalarMul{
 		Point:  [2]frontend.Variable{x, y},
 		Scalar: frontend.Variable(scalar),
 		Res:    [2]frontend.Variable{res.X.BigInt(new(big.Int)), res.Y.BigInt(new(big.Int))},
 	}
-	err = test.IsSolved(&BN254MultiScalarMul{
+	err = test.IsSolved(&BN254ScalarMul{
 		Point:  [2]frontend.Variable{},
 		Scalar: frontend.Variable(scalar),
 		Res:    [2]frontend.Variable{},

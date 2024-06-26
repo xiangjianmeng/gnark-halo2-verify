@@ -156,6 +156,20 @@ func main() {
 		TargetInst: make([]frontend.Variable, 4),
 	}
 
+	{
+		for i := 0; i < len(proofStr); i++ {
+			aggCircuit.Proof[i] = big.NewInt(0)
+		}
+		aggCircuit.VerifyInst[0] = big.NewInt(0)
+		for i := 0; i < len(auxStr); i++ {
+			aggCircuit.Aux[i] = big.NewInt(0)
+		}
+		aggCircuit.TargetInst[0] = big.NewInt(0)
+		aggCircuit.TargetInst[1] = big.NewInt(0)
+		aggCircuit.TargetInst[2] = big.NewInt(0)
+		aggCircuit.TargetInst[3] = big.NewInt(0)
+	}
+
 	var witnessCircuit = AggregatorCircuit{
 		Proof:      make([]frontend.Variable, len(proofStr)),
 		VerifyInst: make([]frontend.Variable, 1),
