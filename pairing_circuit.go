@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"github.com/consensys/gnark/std/math/emulated"
 	"log"
 
 	"github.com/consensys/gnark-crypto/ecc/bn254"
@@ -12,16 +13,20 @@ import (
 // BN256PairingCircuit is the circuit that performs a bn256 pairing operation
 type BN256PairingCircuit struct {
 	// Inputs
-	G1Points [2]*sw_bn254.G1Affine
-	G2Points [2]*sw_bn254.G2Affine
+	x11, y11, x12, y12 frontend.Variable
 }
 
 // Define the circuit
 func (c *BN256PairingCircuit) Define(api frontend.API) error {
+	G1Points, err := FillVerifyCircuitsG1(api, c.x11, c.y11, c.x12, c.y12)
+	if err != nil {
+		return err
+	}
+	G2Points := FillVerifyCircuitsG2()
 	return VerifyBN256Pairing(
 		api,
-		c.G1Points[:],
-		c.G2Points[:],
+		G1Points[:],
+		G2Points[:],
 	)
 }
 
@@ -45,28 +50,38 @@ func VerifyBN256Pairing(
 	return nil
 }
 
-func (c *BN256PairingCircuit) FillVerifyCircuitsG1(x1, y1, x2, y2 frontend.Variable) {
-	var g10 = bn254.G1Affine{}
-	_, err1 := g10.X.SetInterface(x1)
-	_, err2 := g10.Y.SetInterface(y1)
-	if err1 != nil || err2 != nil || !g10.IsOnCurve() {
-		panic(fmt.Sprintf("err1 = %v, err2 = %v", err1, err2))
+func FillVerifyCircuitsG1(api frontend.API, x1, y1, x2, y2 frontend.Variable) ([2]*sw_bn254.G1Affine, error) {
+	p1, err := ToPoint[emulated.BN254Fp](api, [2]frontend.Variable{x1, y1})
+	if err != nil {
+		return [2]*sw_bn254.G1Affine{}, err
 	}
 
-	var g11 = bn254.G1Affine{}
-	_, err1 = g11.X.SetInterface(x2)
-	_, err2 = g11.Y.SetInterface(y2)
-	if err1 != nil || err2 != nil || !g11.IsOnCurve() {
-		panic(fmt.Sprintf("err1 = %v, err2 = %v", err1, err2))
+	p2, err := ToPoint[emulated.BN254Fp](api, [2]frontend.Variable{x2, y2})
+	if err != nil {
+		return [2]*sw_bn254.G1Affine{}, err
 	}
 
-	swG10 := sw_bn254.NewG1Affine(g10)
-	swG11 := sw_bn254.NewG1Affine(g11)
-	c.G1Points = [2]*sw_bn254.G1Affine{&swG10, &swG11}
+	//var g10 = bn254.G1Affine{}
+	//_, err1 := g10.X.SetInterface(x1)
+	//_, err2 := g10.Y.SetInterface(y1)
+	//if err1 != nil || err2 != nil || !g10.IsOnCurve() {
+	//	panic(fmt.Sprintf("err1 = %v, err2 = %v", err1, err2))
+	//}
+	//
+	//var g11 = bn254.G1Affine{}
+	//_, err1 = g11.X.SetInterface(x2)
+	//_, err2 = g11.Y.SetInterface(y2)
+	//if err1 != nil || err2 != nil || !g11.IsOnCurve() {
+	//	panic(fmt.Sprintf("err1 = %v, err2 = %v", err1, err2))
+	//}
 
+	//swG10 := sw_bn254.NewG1Affine(g10)
+	//swG11 := sw_bn254.NewG1Affine(g11)
+
+	return [2]*sw_bn254.G1Affine{&p1, &p2}, nil
 }
 
-func (c *BN256PairingCircuit) FillVerifyCircuitsG2() {
+func FillVerifyCircuitsG2() [2]*sw_bn254.G2Affine {
 	g20, g21 := GetVerifyCircuitsG2Jac()
 
 	var g20GenAff, g21GenAff bn254.G2Affine
@@ -77,7 +92,7 @@ func (c *BN256PairingCircuit) FillVerifyCircuitsG2() {
 	swG20 := sw_bn254.NewG2Affine(g20GenAff)
 	swG21 := sw_bn254.NewG2Affine(g21GenAff)
 
-	c.G2Points = [2]*sw_bn254.G2Affine{&swG20, &swG21}
+	return [2]*sw_bn254.G2Affine{&swG20, &swG21}
 }
 
 func GetVerifyCircuitsG2Jac() (bn254.G2Jac, bn254.G2Jac) {

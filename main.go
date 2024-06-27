@@ -2,19 +2,13 @@
 package main
 
 import (
-	"github.com/consensys/gnark-crypto/ecc"
-	"github.com/consensys/gnark/backend/plonk"
-	"github.com/consensys/gnark/frontend"
-	"github.com/consensys/gnark/frontend/cs/scs"
+	"github.com/consensys/gnark/backend/groth16"
+	"github.com/consensys/gnark/frontend/cs/r1cs"
+	"log"
 	"math/big"
 
-	//"github.com/consensys/gnark/frontend/cs/r1cs"
-	//"github.com/consensys/gnark/std/algebra/emulated/sw_emulated"
-	//"github.com/consensys/gnark/std/math/emulated"
-	//"github.com/consensys/gnark/std/signature/ecdsa"
-	"github.com/consensys/gnark/test/unsafekzg"
-
-	"log"
+	"github.com/consensys/gnark-crypto/ecc"
+	"github.com/consensys/gnark/frontend"
 )
 
 var proofStr = []string{
@@ -177,19 +171,19 @@ func main() {
 		TargetInst: make([]frontend.Variable, 4),
 	}
 
-	r1cs, err := frontend.Compile(ecc.BN254.ScalarField(), scs.NewBuilder, &aggCircuit)
+	r1cs, err := frontend.Compile(ecc.BN254.ScalarField(), r1cs.NewBuilder, &aggCircuit)
 	if err != nil {
 		panic(err)
 	}
 
 	log.Println("start setup")
 
-	srs, srsLagrange, err := unsafekzg.NewSRS(r1cs)
-	if err != nil {
-		panic(err)
-	}
+	//srs, srsLagrange, err := unsafekzg.NewSRS(r1cs)
+	//if err != nil {
+	//	panic(err)
+	//}
 
-	pk, vk, err := plonk.Setup(r1cs, srs, srsLagrange)
+	pk, vk, err := groth16.Setup(r1cs)
 	if err != nil {
 		panic(err)
 	}
@@ -225,7 +219,7 @@ func main() {
 	log.Println("start proof")
 
 	// 2. Proof creation
-	proof, err := plonk.Prove(r1cs, pk, witness)
+	proof, err := groth16.Prove(r1cs, pk, witness)
 	if err != nil {
 		panic(err)
 	}
@@ -239,7 +233,7 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	err = plonk.Verify(proof, vk, publicWitness)
+	err = groth16.Verify(proof, vk, publicWitness)
 	if err != nil {
 		panic(err)
 	}

@@ -8,7 +8,6 @@ import (
 	"crypto/sha256"
 	"github.com/consensys/gnark-crypto/ecc"
 	"github.com/consensys/gnark-crypto/ecc/bn254"
-	"github.com/consensys/gnark-crypto/ecc/bn254/fr"
 	"github.com/consensys/gnark/std/math/uints"
 	"github.com/consensys/gnark/test"
 	"github.com/ethereum/go-ethereum/crypto"
@@ -133,22 +132,13 @@ func TestCheckOnCurveCircuit(t *testing.T) {
 	x, _ := new(big.Int).SetString("1", 10)
 	y, _ := new(big.Int).SetString("21888242871839275222246405745257275088696311157297823662689037894645226208581", 10)
 
-	var g10 = bn254.G1Affine{}
-	_ = g10.X.SetBigInt(x)
-	_ = g10.Y.SetBigInt(y)
-	assert.True(g10.IsOnCurve())
-
-	var xEle fr.Element
-	xEle.SetBigInt(x)
-	var yEle fr.Element
-	yEle.SetBigInt(y)
-	witnessCircuit := CheckOnCurveCircuitVar{
-		xEle,
-		yEle,
+	witnessCircuit := CheckOnCurveCircuit{
+		x,
+		y,
 	}
-	circuit := CheckOnCurveCircuitVar{
-		xEle,
-		yEle,
+	circuit := CheckOnCurveCircuit{
+		x,
+		y,
 	}
 
 	err := test.IsSolved(&circuit, &witnessCircuit, ecc.BN254.ScalarField())

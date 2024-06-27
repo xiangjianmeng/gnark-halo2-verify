@@ -56,6 +56,8 @@ func VerifyBN254ScalarMul(
 	if err != nil {
 		return err
 	}
+
+	//ps, err := ToPoint[emulated.BN254Fp](api, point)
 	x, err := new(fp.Element).SetInterface(point[0])
 	if err != nil {
 		return err
@@ -64,29 +66,21 @@ func VerifyBN254ScalarMul(
 	if err != nil {
 		return err
 	}
-	ps := &sw_emulated.AffinePoint[emulated.BN254Fp]{
+
+	ps := sw_emulated.AffinePoint[emulated.BN254Fp]{
 		X: emulated.ValueOf[emparams.BN254Fp](x),
 		Y: emulated.ValueOf[emparams.BN254Fp](y),
 	}
-	scalarEle, err := new(fp.Element).SetInterface(scalar)
-	if err != nil {
-		return err
-	}
 
-	s := emulated.ValueOf[emparams.BN254Fr](*scalarEle)
-	res := cr.ScalarMul(ps, &s)
+	scalarEle, err := ToElement[emulated.BN254Fr](api, scalar)
+	if err != nil {
+		return err
+	}
+	res := cr.ScalarMul(&ps, &scalarEle)
 
-	expectedX, err := new(fp.Element).SetInterface(expected[0])
+	expectedRes, err := ToPoint[emulated.BN254Fp](api, expected)
 	if err != nil {
 		return err
-	}
-	expectedY, err := new(fp.Element).SetInterface(expected[1])
-	if err != nil {
-		return err
-	}
-	expectedRes := sw_emulated.AffinePoint[emparams.BN254Fp]{
-		X: emulated.ValueOf[emparams.BN254Fp](expectedX),
-		Y: emulated.ValueOf[emparams.BN254Fp](expectedY),
 	}
 	cr.AssertIsEqual(res, &expectedRes)
 	return nil
@@ -110,45 +104,21 @@ func VerifyBN254Add(
 		return err
 	}
 
-	x1, err := new(fp.Element).SetInterface(point1[0])
+	ps1, err := ToPoint[emulated.BN254Fp](api, point1)
 	if err != nil {
 		return err
-	}
-	y1, err := new(fp.Element).SetInterface(point1[1])
-	if err != nil {
-		return err
-	}
-	ps1 := &sw_emulated.AffinePoint[emulated.BN254Fp]{
-		X: emulated.ValueOf[emparams.BN254Fp](x1),
-		Y: emulated.ValueOf[emparams.BN254Fp](y1),
 	}
 
-	x2, err := new(fp.Element).SetInterface(point2[0])
+	ps2, err := ToPoint[emulated.BN254Fp](api, point2)
 	if err != nil {
 		return err
-	}
-	y2, err := new(fp.Element).SetInterface(point2[1])
-	if err != nil {
-		return err
-	}
-	ps2 := &sw_emulated.AffinePoint[emulated.BN254Fp]{
-		X: emulated.ValueOf[emparams.BN254Fp](x2),
-		Y: emulated.ValueOf[emparams.BN254Fp](y2),
 	}
 
-	res := cr.AddUnified(ps1, ps2)
+	res := cr.AddUnified(&ps1, &ps2)
 
-	expectedX, err := new(fp.Element).SetInterface(expected[0])
+	expectedRes, err := ToPoint[emulated.BN254Fp](api, expected)
 	if err != nil {
 		return err
-	}
-	expectedY, err := new(fp.Element).SetInterface(expected[1])
-	if err != nil {
-		return err
-	}
-	expectedRes := sw_emulated.AffinePoint[emparams.BN254Fp]{
-		X: emulated.ValueOf[emparams.BN254Fp](expectedX),
-		Y: emulated.ValueOf[emparams.BN254Fp](expectedY),
 	}
 	//log.Println(res)
 	//log.Println(&expectedRes)

@@ -2,6 +2,7 @@ package main
 
 import (
 	"log"
+	"math/big"
 	"testing"
 
 	"github.com/consensys/gnark-crypto/ecc"
@@ -11,15 +12,11 @@ import (
 	"github.com/consensys/gnark/constraint"
 	"github.com/consensys/gnark/frontend"
 	"github.com/consensys/gnark/frontend/cs/r1cs"
-	"github.com/consensys/gnark/std/algebra/emulated/sw_bn254"
 	"github.com/consensys/gnark/test"
 )
 
 func setupKeys() (groth16.ProvingKey, groth16.VerifyingKey, constraint.ConstraintSystem) {
-	circuit := BN256PairingCircuit{
-		G1Points: [2]*sw_bn254.G1Affine{new(sw_bn254.G1Affine), new(sw_bn254.G1Affine)},
-		G2Points: [2]*sw_bn254.G2Affine{new(sw_bn254.G2Affine), new(sw_bn254.G2Affine)},
-	}
+	circuit := BN256PairingCircuit{}
 
 	r1cs, err := frontend.Compile(ecc.BN254.ScalarField(), r1cs.NewBuilder, &circuit)
 	if err != nil {
@@ -38,16 +35,11 @@ func setupKeys() (groth16.ProvingKey, groth16.VerifyingKey, constraint.Constrain
 }
 
 func createProof(pk groth16.ProvingKey, r1cs constraint.ConstraintSystem) (groth16.Proof, witness.Witness) {
-	witnessCircuit := BN256PairingCircuit{}
-
-	// Set the G1 and G2 points
-	witnessCircuit.FillVerifyCircuitsG1(
-		"2920616387084030925907755037226454382846345550621956833249622258647667607078",
-		"16502678157049327323910877548707266122319935523346850792311342099791838736912",
-		"7162082828732168937516361335135022403650719329242056518668518043784043198510",
-		"18768486256042060147567165227366772940689098806912976766549486364846889365307",
-	)
-	witnessCircuit.FillVerifyCircuitsG2()
+	x1, _ := new(big.Int).SetString("2920616387084030925907755037226454382846345550621956833249622258647667607078", 10)
+	y1, _ := new(big.Int).SetString("16502678157049327323910877548707266122319935523346850792311342099791838736912", 10)
+	x2, _ := new(big.Int).SetString("7162082828732168937516361335135022403650719329242056518668518043784043198510", 10)
+	y2, _ := new(big.Int).SetString("18768486256042060147567165227366772940689098806912976766549486364846889365307", 10)
+	witnessCircuit := BN256PairingCircuit{x1, y1, x2, y2}
 
 	witness, err := frontend.NewWitness(&witnessCircuit, ecc.BN254.ScalarField())
 	if err != nil {
@@ -75,19 +67,19 @@ func verifyProof(proof groth16.Proof, vk groth16.VerifyingKey, witness witness.W
 }
 
 func TestPairingCheckTestSolve(t *testing.T) {
-	witnessCircuit := BN256PairingCircuit{}
-	circuit := BN256PairingCircuit{
-		G1Points: [2]*sw_bn254.G1Affine{new(sw_bn254.G1Affine), new(sw_bn254.G1Affine)},
-		G2Points: [2]*sw_bn254.G2Affine{new(sw_bn254.G2Affine), new(sw_bn254.G2Affine)},
-	}
+	circuit := BN256PairingCircuit{}
 
-	witnessCircuit.FillVerifyCircuitsG1(
-		"2920616387084030925907755037226454382846345550621956833249622258647667607078",
-		"16502678157049327323910877548707266122319935523346850792311342099791838736912",
-		"7162082828732168937516361335135022403650719329242056518668518043784043198510",
-		"18768486256042060147567165227366772940689098806912976766549486364846889365307",
-	)
-	witnessCircuit.FillVerifyCircuitsG2()
+	x1, _ := new(big.Int).SetString("2920616387084030925907755037226454382846345550621956833249622258647667607078", 10)
+	y1, _ := new(big.Int).SetString("16502678157049327323910877548707266122319935523346850792311342099791838736912", 10)
+	x2, _ := new(big.Int).SetString("7162082828732168937516361335135022403650719329242056518668518043784043198510", 10)
+	y2, _ := new(big.Int).SetString("18768486256042060147567165227366772940689098806912976766549486364846889365307", 10)
+
+	witnessCircuit := BN256PairingCircuit{
+		x11: frontend.Variable(x1),
+		y11: frontend.Variable(y1),
+		x12: frontend.Variable(x2),
+		y12: frontend.Variable(y2),
+	}
 	err := test.IsSolved(&circuit, &witnessCircuit, ecc.BN254.ScalarField())
 
 	assert := test.NewAssert(t)

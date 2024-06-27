@@ -3,7 +3,6 @@ package main
 import (
 	"bytes"
 	"github.com/consensys/gnark-crypto/ecc/bn254/fp"
-	"log"
 	"math/big"
 
 	"github.com/consensys/gnark/frontend"
@@ -36,38 +35,14 @@ func (circuit *AggregatorCircuit) Define(api frontend.API) error {
 		bufLen++
 	}
 
-	//var hashBuf bytes.Buffer
-	//for i := 0; i < bufLen; i++ {
-	//	fpTmp, err := new(fp.Element).SetInterface(buf[i])
-	//	if err != nil {
-	//		return err
-	//	}
-	//	input := fpTmp.Bytes()
-	//	hashBuf.Write(input[:])
-	//}
-	//
-	//hashValHex := crypto.Keccak256Hash(hashBuf.Bytes())
-	//hashValBig := big.NewInt(0).SetBytes(hashValHex.Bytes())
-	//log.Println("hashValBig", hashValBig)
-	//
-	//input := uints.NewU8Array(hashBuf.Bytes())
-	//hashVar := uints.NewU8Array(hashValHex.Bytes())
-	//err := VerifyKeccak256(api, input, hashVar)
-	//if err != nil {
-	//	log.Println(err)
-	//	return err
-	//}
-
-	hashValBig, err := VerifyInstanceHash(api, buf[:bufLen])
+	hashMod, err := VerifyInstanceHash(api, buf[:bufLen])
 	if err != nil {
-		log.Println(err)
+		//log.Println(err)
 		return err
 	}
 
-	//q, _ := big.NewInt(0).SetString(FrModulus, 10)
-	//hashMod := big.NewInt(0).Mod(hashValBig, q)
-	hashMod := mod(api, hashValBig)
-	log.Println("hashMod: ", hashMod)
+	//hashMod := mod(api, hashValBig)
+	//log.Println("hashMod: ", hashMod)
 	buf[2] = hashMod
 
 	err = CalcVerifyCircuitLagrange(api, buf[:])
@@ -75,7 +50,7 @@ func (circuit *AggregatorCircuit) Define(api frontend.API) error {
 		return err
 	}
 
-	log.Println("CalcVerifyCircuitLagrange", buf[0], buf[1], buf[2])
+	//log.Println("CalcVerifyCircuitLagrange", buf[0], buf[1], buf[2])
 
 	err = GetChallengesShPlonkCircuit(api, buf[:], circuit.Proof)
 	if err != nil {
@@ -98,35 +73,25 @@ func (circuit *AggregatorCircuit) Define(api frontend.API) error {
 		return err
 	}
 
-	err = VerifyNotZero(api, buf[10])
-	if err != nil {
-		return err
-	}
-	err = VerifyNotZero(api, buf[11])
-	if err != nil {
-		return err
-	}
-	err = VerifyNotZero(api, buf[12])
-	if err != nil {
-		return err
-	}
-	err = VerifyNotZero(api, buf[13])
-	if err != nil {
-		return err
+	for i := 10; i < 14; i++ {
+		err = VerifyNotZero(api, buf[i])
+		if err != nil {
+			return err
+		}
 	}
 
-	witnessCircuit := BN256PairingCircuit{}
-	witnessCircuit.FillVerifyCircuitsG1(
-		buf[10], buf[11], buf[12], buf[13],
-	)
-	witnessCircuit.FillVerifyCircuitsG2()
-	err = VerifyBN256Pairing(api, witnessCircuit.G1Points[:], witnessCircuit.G2Points[:])
+	G1Points, err := FillVerifyCircuitsG1(api, buf[10], buf[11], buf[12], buf[13])
+	if err != nil {
+		return err
+	}
+	G2Points := FillVerifyCircuitsG2()
+	err = VerifyBN256Pairing(api, G1Points[:], G2Points[:])
 	return err
 }
 
 func VerifyInstanceHash(api frontend.API, inputs []frontend.Variable) (frontend.Variable, error) {
 	length := 32 * (len(inputs) + 1)
-	result, err := api.Compiler().NewHint(Keccak256Hint, 1+length, inputs...)
+	result, err := api.Compiler().NewHint(Keccak256Hint, length, inputs...)
 	if err != nil {
 		return nil, err
 	}
@@ -138,20 +103,16 @@ func VerifyInstanceHash(api frontend.API, inputs []frontend.Variable) (frontend.
 	}
 
 	var hashU8Array, inputU8Array []uints.U8
-	for i := 1; i < 33; i++ {
+	for i := 0; i < 32; i++ {
 		hashU8Array = append(hashU8Array, binaryF.ByteValueOf(result[i]))
 	}
 
-	for i := 33; i < length+1; i++ {
+	for i := 32; i < length; i++ {
 		inputU8Array = append(inputU8Array, binaryF.ByteValueOf(result[i]))
 	}
 
-	//input := uints.NewU8Array(result[0].(*big.Int).Bytes())
-	//hashVar := uints.NewU8Array(result[0].(*big.Int).Bytes())
 	err = VerifyKeccak256(api, inputU8Array, hashU8Array)
-	log.Println(err)
-	return PackUInt8Variables(api, result[1:33]...), err
-	//return result[0], err
+	return PackUInt8Variables(api, result[0:32]...), err
 }
 
 func Keccak256Hint(_ *big.Int, inputs []*big.Int, results []*big.Int) error {
@@ -162,14 +123,14 @@ func Keccak256Hint(_ *big.Int, inputs []*big.Int, results []*big.Int) error {
 		hashBuf.Write(input[:])
 	}
 	hashValHex := crypto.Keccak256Hash(hashBuf.Bytes())
-	hashValBig := big.NewInt(0).SetBytes(hashValHex.Bytes())
+	//hashValBig := big.NewInt(0).SetBytes(hashValHex.Bytes())
 	//log.Println("hashBuf.Bytes()", hashBuf.Bytes())
 	//log.Println("hashValBig", hashValBig)
 	//log.Println("hashValHex", hashValHex.Bytes())
 
 	//results[0] = big.NewInt(0).SetBytes(hashBuf.Bytes())
-	results[0] = hashValBig
-	i := 1
+	//results[0] = hashValBig
+	i := 0
 	for _, bigByte := range hashValHex.Bytes() {
 		results[i] = new(big.Int).SetBytes([]byte{bigByte})
 		i++

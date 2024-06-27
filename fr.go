@@ -10,13 +10,6 @@ func ecc_mul(api frontend.API, input []frontend.Variable, offset int) error {
 	//if input[offset+2].(*big.Int) == fr_from_string("1") {
 	//	return nil
 	//}
-	//
-	//one := fr_from_string("1")
-	//api.IsZero(api.Sub(input[offset+2], one))
-	////cmp := api.Cmp(input[offset+2], one)
-	//if input[offset+2].(*big.Int).Cmp(one.(*big.Int)) == 0 {
-	//	return nil
-	//}
 
 	res, err := CalcVerifyBN256Msm(api, input[offset], input[offset+1], input[offset+2])
 	if err != nil {

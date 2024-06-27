@@ -10,8 +10,9 @@ func VerifyProof1(
 	aux []frontend.Variable,
 	buf [43]frontend.Variable,
 ) ([43]frontend.Variable, error) {
+	one := fr_from_string("1")
 	buf[10], buf[11] = transcript[102], transcript[103]
-	buf[12] = fr_from_string("1")
+	buf[12] = one
 	err := ecc_mul(api, buf[:], 10)
 	if err != nil {
 		return [43]frontend.Variable{}, err
@@ -21,7 +22,7 @@ func VerifyProof1(
 		buf[6],
 	)
 	buf[18] = fr_div(api,
-		fr_from_string("1"),
+		one,
 		fr_add(api, buf[17], fr_neg(api, buf[6])),
 		aux[0],
 	)
@@ -30,29 +31,29 @@ func VerifyProof1(
 		buf[6],
 	)
 	buf[20] = fr_div(api,
-		fr_from_string("1"),
+		one,
 		fr_add(api, buf[17], fr_neg(api, buf[19])),
 		aux[1],
 	)
 	buf[21] = fr_mul(api, buf[18], buf[20])
 	buf[22] = fr_div(api,
-		fr_from_string("1"),
+		one,
 		fr_add(api, buf[6], fr_neg(api, buf[17])),
 		aux[2],
 	)
 	buf[23] = fr_div(api,
-		fr_from_string("1"),
+		one,
 		fr_add(api, buf[6], fr_neg(api, buf[19])),
 		aux[3],
 	)
 	buf[24] = fr_mul(api, buf[22], buf[23])
 	buf[25] = fr_div(api,
-		fr_from_string("1"),
+		one,
 		fr_add(api, buf[19], fr_neg(api, buf[17])),
 		aux[4],
 	)
 	buf[26] = fr_div(api,
-		fr_from_string("1"),
+		one,
 		fr_add(api, buf[19], fr_neg(api, buf[6])),
 		aux[5],
 	)
@@ -182,12 +183,12 @@ func VerifyProof1(
 		buf[6],
 	)
 	buf[21] = fr_div(api,
-		fr_from_string("1"),
+		one,
 		fr_add(api, buf[20], fr_neg(api, buf[6])),
 		aux[6],
 	)
 	buf[22] = fr_div(api,
-		fr_from_string("1"),
+		one,
 		fr_add(api, buf[6], fr_neg(api, buf[20])),
 		aux[7],
 	)
@@ -246,7 +247,7 @@ func VerifyProof1(
 		fr_neg(api, buf[20]),
 	)
 	buf[27] = fr_div(api,
-		fr_from_string("1"),
+		one,
 		fr_mul(api, buf[20], buf[25]),
 		aux[8],
 	)
@@ -535,13 +536,13 @@ func VerifyProof1(
 		buf[38],
 	)
 	buf[35] = fr_pow(api, buf[6], fr_from_string("8388608"))
-	buf[36] = fr_add(api, buf[35], fr_neg(api, fr_from_string("1")))
+	buf[36] = fr_add(api, buf[35], fr_neg(api, one))
 	buf[37] = fr_div(api,
 		fr_mul(api,
 			fr_from_string("21888240262557392955334514970720457388010314637169927192662615958087340972065"),
 			buf[36],
 		),
-		fr_add(api, buf[6], fr_neg(api, fr_from_string("1"))),
+		fr_add(api, buf[6], fr_neg(api, one)),
 		aux[9],
 	)
 	buf[31] = fr_mul(api,
@@ -556,7 +557,7 @@ func VerifyProof1(
 			fr_mul(api,
 				buf[37],
 				fr_add(api,
-					fr_from_string("1"),
+					one,
 					fr_neg(api, transcript[79]),
 				),
 			),
@@ -694,7 +695,7 @@ func VerifyProof1(
 		),
 	)
 	buf[38] = fr_add(api,
-		fr_from_string("1"),
+		one,
 		fr_neg(api, fr_add(api,
 			buf[33],
 			fr_add(api,
@@ -846,7 +847,7 @@ func VerifyProof1(
 				fr_mul(api,
 					buf[37],
 					fr_add(api,
-						fr_from_string("1"),
+						one,
 						fr_neg(api, transcript[90]),
 					),
 				),
