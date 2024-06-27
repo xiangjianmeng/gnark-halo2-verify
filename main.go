@@ -6,6 +6,7 @@ import (
 	"github.com/consensys/gnark/frontend/cs/r1cs"
 	"log"
 	"math/big"
+	"os"
 
 	"github.com/consensys/gnark-crypto/ecc"
 	"github.com/consensys/gnark/frontend"
@@ -236,6 +237,15 @@ func main() {
 	err = groth16.Verify(proof, vk, publicWitness)
 	if err != nil {
 		panic(err)
+	}
+
+	f, err := os.Create("contract_groth16.sol")
+	if err != nil {
+		log.Fatalln(err)
+	}
+	err = vk.ExportSolidity(f)
+	if err != nil {
+		log.Fatalln(err)
 	}
 
 	log.Println("end verify")
