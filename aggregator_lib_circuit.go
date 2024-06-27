@@ -388,6 +388,11 @@ func VerifyCheckOnCurve(
 		return err
 	}
 
+	//xB, _ := api.Compiler().ConstantValue(x)
+	//yB, _ := api.Compiler().ConstantValue(y)
+
+	//xEle := emulated.ValueOf[emparams.BN254Fp](xB)
+	//yEle := emulated.ValueOf[emparams.BN254Fp](yB)
 	point := sw_emulated.AffinePoint[emparams.BN254Fp]{
 		X: xEle,
 		Y: yEle,

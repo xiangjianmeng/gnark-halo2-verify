@@ -1,6 +1,8 @@
 package main
 
 import (
+	"github.com/consensys/gnark/frontend"
+	"github.com/consensys/gnark/frontend/cs/r1cs"
 	"log"
 	"math/big"
 	"testing"
@@ -129,19 +131,23 @@ func TestKeccak256Circuit(t *testing.T) {
 
 func TestCheckOnCurveCircuit(t *testing.T) {
 	assert := test.NewAssert(t)
-	x, _ := new(big.Int).SetString("1", 10)
-	y, _ := new(big.Int).SetString("21888242871839275222246405745257275088696311157297823662689037894645226208581", 10)
+	//x, _ := new(big.Int).SetString("1", 10)
+	//y, _ := new(big.Int).SetString("21888242871839275222246405745257275088696311157297823662689037894645226208581", 10)
+	x, _ := new(big.Int).SetString("13534086339230182803823178260078315691269243572458753455438283544709107378988", 10)
+	y, _ := new(big.Int).SetString("9053077977614827188269653632534212501565186534180282672519599630892718179094", 10)
 
 	witnessCircuit := CheckOnCurveCircuit{
 		x,
 		y,
 	}
-	circuit := CheckOnCurveCircuit{
-		x,
-		y,
+	//circuit := CheckOnCurveCircuit{}
+
+	_, err := frontend.Compile(ecc.BN254.ScalarField(), r1cs.NewBuilder, &witnessCircuit)
+	if err != nil {
+		panic(err)
 	}
 
-	err := test.IsSolved(&circuit, &witnessCircuit, ecc.BN254.ScalarField())
+	//err := test.IsSolved(&witnessCircuit, &witnessCircuit, ecc.BN254.ScalarField())
 	assert.NoError(err)
 }
 

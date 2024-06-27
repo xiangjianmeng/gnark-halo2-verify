@@ -1,7 +1,6 @@
 package main
 
 import (
-	"github.com/consensys/gnark-crypto/ecc/bn254/fp"
 	"github.com/consensys/gnark/frontend"
 	"github.com/consensys/gnark/std/algebra/emulated/sw_emulated"
 	"github.com/consensys/gnark/std/math/emulated"
@@ -57,20 +56,22 @@ func VerifyBN254ScalarMul(
 		return err
 	}
 
-	//ps, err := ToPoint[emulated.BN254Fp](api, point)
-	x, err := new(fp.Element).SetInterface(point[0])
+	ps, err := ToPoint[emulated.BN254Fp](api, point)
 	if err != nil {
 		return err
 	}
-	y, err := new(fp.Element).SetInterface(point[1])
-	if err != nil {
-		return err
-	}
-
-	ps := sw_emulated.AffinePoint[emulated.BN254Fp]{
-		X: emulated.ValueOf[emparams.BN254Fp](x),
-		Y: emulated.ValueOf[emparams.BN254Fp](y),
-	}
+	//x, err := new(fp.Element).SetInterface(point[0])
+	//if err != nil {
+	//	return err
+	//}
+	//y, err := new(fp.Element).SetInterface(point[1])
+	//if err != nil {
+	//	return err
+	//}
+	//ps := sw_emulated.AffinePoint[emulated.BN254Fp]{
+	//	X: emulated.ValueOf[emparams.BN254Fp](point[0]),
+	//	Y: emulated.ValueOf[emparams.BN254Fp](point[1]),
+	//}
 
 	scalarEle, err := ToElement[emulated.BN254Fr](api, scalar)
 	if err != nil {
