@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"github.com/consensys/gnark/frontend"
+	"github.com/consensys/gnark/frontend/cs/r1cs"
 	"math/big"
 	"testing"
 
@@ -36,18 +37,14 @@ func TestOnBn254(t *testing.T) {
 	x.SetString("13534086339230182803823178260078315691269243572458753455438283544709107378988", 10)
 	y.SetString("9053077977614827188269653632534212501565186534180282672519599630892718179094", 10)
 
-	// Define the curve modulus and b parameter
-	q := new(big.Int)
-	q.SetString(FrModulus, 10)
-
 	// Define x^3 + 3
-	xCubed := new(big.Int).Exp(x, big.NewInt(3), q)
+	xCubed := new(big.Int).Exp(x, big.NewInt(3), MODULUS)
 	xCubed.Add(xCubed, big.NewInt(3))
-	xCubed.Mod(xCubed, q)
+	xCubed.Mod(xCubed, MODULUS)
 
 	// Define y^2
 	ySquared := new(big.Int).Mul(y, y)
-	ySquared.Mod(ySquared, q)
+	ySquared.Mod(ySquared, MODULUS)
 
 	if xCubed.Cmp(ySquared) == 0 {
 		fmt.Println("The point is on the BN256 curve")
@@ -86,6 +83,20 @@ func TestCircuit(t *testing.T) {
 	witnessCircuit.TargetInst[3] = target3
 
 	err := test.IsSolved(&witnessCircuit, &witnessCircuit, ecc.BN254.ScalarField())
+	grkAssert.NoError(err)
+}
+
+func TestCircuitCompile(t *testing.T) {
+	grkAssert := test.NewAssert(t)
+
+	var witnessCircuit = AggregatorCircuit{
+		Proof:      make([]frontend.Variable, len(proofStr)),
+		VerifyInst: make([]frontend.Variable, 1),
+		Aux:        make([]frontend.Variable, len(auxStr)),
+		TargetInst: make([]frontend.Variable, 4),
+	}
+
+	_, err := frontend.Compile(ecc.BN254.ScalarField(), r1cs.NewBuilder, &witnessCircuit)
 	grkAssert.NoError(err)
 }
 

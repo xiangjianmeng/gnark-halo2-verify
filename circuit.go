@@ -50,13 +50,10 @@ func (circuit *AggregatorCircuit) Define(api frontend.API) error {
 		return err
 	}
 
-	//log.Println("CalcVerifyCircuitLagrange", buf[0], buf[1], buf[2])
-
 	err = GetChallengesShPlonkCircuit(api, buf[:], circuit.Proof)
 	if err != nil {
 		return err
 	}
-	//log.Println("GetChallengesShPlonkCircuit", "\n", buf[0], "\n", buf[1], "\n", buf[2], "\n", buf[3], "\n", buf[4], "\n", buf[5], "\n", buf[6], "\n", buf[7], "\n", buf[8], "\n", buf[9])
 
 	buf, err = VerifyProof1(api, circuit.Proof, circuit.Aux, buf)
 	if err != nil {
@@ -123,13 +120,7 @@ func Keccak256Hint(_ *big.Int, inputs []*big.Int, results []*big.Int) error {
 		hashBuf.Write(input[:])
 	}
 	hashValHex := crypto.Keccak256Hash(hashBuf.Bytes())
-	//hashValBig := big.NewInt(0).SetBytes(hashValHex.Bytes())
-	//log.Println("hashBuf.Bytes()", hashBuf.Bytes())
-	//log.Println("hashValBig", hashValBig)
-	//log.Println("hashValHex", hashValHex.Bytes())
 
-	//results[0] = big.NewInt(0).SetBytes(hashBuf.Bytes())
-	//results[0] = hashValBig
 	i := 0
 	for _, bigByte := range hashValHex.Bytes() {
 		results[i] = new(big.Int).SetBytes([]byte{bigByte})

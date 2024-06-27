@@ -3,9 +3,7 @@ package main
 import (
 	"crypto/sha256"
 	"encoding/hex"
-	"errors"
 	"fmt"
-	"log"
 	"math/big"
 	"regexp"
 	"strings"
@@ -58,7 +56,6 @@ func VerifyBN256Msm(
 	res *bn254.G1Affine,
 ) error {
 	g1Point = g1Point.ScalarMultiplication(g1Point, scalar)
-	//log.Println("VerifyBN256Msm", g1Point.String(), res.String())
 	api.AssertIsEqual(g1Point.X, res.X)
 	api.AssertIsEqual(g1Point.Y, res.Y)
 	return nil
@@ -126,38 +123,6 @@ func MsmHint(_ *big.Int, inputs []*big.Int, results []*big.Int) error {
 	return nil
 }
 
-func CalcVerifyBN256Msm1(api frontend.API, x, y, k frontend.Variable) ([2]frontend.Variable, error) {
-	result, err := api.Compiler().NewHint(MsmHint, 2, x, y, k)
-	if err != nil {
-		panic(err)
-	}
-
-	var g10 = bn254.G1Affine{}
-	_, err = g10.X.SetInterface(x)
-	if err != nil {
-		panic(err)
-	}
-	_, err = g10.Y.SetInterface(y)
-	if err != nil {
-		panic(err)
-	}
-	if !g10.IsOnCurve() {
-		return [2]frontend.Variable{}, errors.New("bn256.G1Affine is not on curve")
-	}
-
-	var resCircuit = bn254.G1Affine{}
-	_, err = resCircuit.X.SetInterface(result[0])
-	if err != nil {
-		panic(err)
-	}
-	_, err = resCircuit.Y.SetInterface(result[1])
-	if err != nil {
-		panic(err)
-	}
-	//return [2]frontend.Variable{result[0], result[1]}, VerifyBN256Msm(api, &g10, k.(*big.Int), &resCircuit)
-	return [2]frontend.Variable{resCircuit.X.BigInt(new(big.Int)), resCircuit.Y.BigInt(new(big.Int))}, VerifyBN256Msm(api, &g10, k.(*big.Int), &resCircuit)
-}
-
 func CalcVerifyBN256Msm(api frontend.API, x, y, k frontend.Variable) ([2]frontend.Variable, error) {
 	result, err := api.Compiler().NewHint(MsmHint, 2, x, y, k)
 	if err != nil {
@@ -202,50 +167,6 @@ func AddHint(_ *big.Int, inputs []*big.Int, results []*big.Int) error {
 	results[0], _ = new(big.Int).SetString(xStr, 10)
 	results[1], _ = new(big.Int).SetString(yStr, 10)
 	return nil
-}
-
-func CalcVerifyBN256Add1(api frontend.API, x1, y1, x2, y2 frontend.Variable) ([2]frontend.Variable, error) {
-	result, err := api.Compiler().NewHint(AddHint, 2, x1, y1, x2, y2)
-	// TODO: sanity check
-
-	// circuit
-	var g10 = bn254.G1Affine{}
-	_, err = g10.X.SetInterface(x1)
-	if err != nil {
-		panic(err)
-	}
-	_, err = g10.Y.SetInterface(y1)
-	if err != nil {
-		panic(err)
-	}
-	if !g10.IsOnCurve() {
-		return [2]frontend.Variable{}, errors.New("bn256.G1Affine is not on curve")
-	}
-
-	var g11 = bn254.G1Affine{}
-	_, err = g11.X.SetInterface(x2)
-	if err != nil {
-		panic(err)
-	}
-	_, err = g11.Y.SetInterface(y2)
-	if err != nil {
-		panic(err)
-	}
-	if !g11.IsOnCurve() {
-		return [2]frontend.Variable{}, errors.New("bn256.G1Affine is not on curve")
-	}
-
-	var resCircuit = bn254.G1Affine{}
-	_, err = resCircuit.X.SetInterface(result[0])
-	if err != nil {
-		panic(err)
-	}
-	_, err = resCircuit.Y.SetInterface(result[1])
-	if err != nil {
-		panic(err)
-	}
-
-	return [2]frontend.Variable{resCircuit.X.BigInt(new(big.Int)), resCircuit.Y.BigInt(new(big.Int))}, VerifyBN256Add(api, &g10, &g11, &resCircuit)
 }
 
 func CalcVerifyBN256Add(api frontend.API, x1, y1, x2, y2 frontend.Variable) ([2]frontend.Variable, error) {
@@ -379,23 +300,10 @@ func VerifyCheckOnCurve(
 	if err != nil {
 		return err
 	}
-	xEle, err := ToElement[emparams.BN254Fp](api, x)
+
+	point, err := ToPoint[emulated.BN254Fp](api, [2]frontend.Variable{x, y})
 	if err != nil {
 		return err
-	}
-	yEle, err := ToElement[emparams.BN254Fp](api, y)
-	if err != nil {
-		return err
-	}
-
-	//xB, _ := api.Compiler().ConstantValue(x)
-	//yB, _ := api.Compiler().ConstantValue(y)
-
-	//xEle := emulated.ValueOf[emparams.BN254Fp](xB)
-	//yEle := emulated.ValueOf[emparams.BN254Fp](yB)
-	point := sw_emulated.AffinePoint[emparams.BN254Fp]{
-		X: xEle,
-		Y: yEle,
 	}
 	cr.AssertIsOnCurve(&point)
 	return nil
@@ -429,36 +337,6 @@ func Sha256Hint(_ *big.Int, inputs []*big.Int, results []*big.Int) error {
 		i++
 	}
 	return nil
-}
-
-func SqueezeChallenge1(
-	api frontend.API,
-	absorbing []frontend.Variable,
-	length int,
-) (frontend.Variable, error) {
-	// TODO: uint256 len = length * 32 + 1;
-	qMod, _ := new(big.Int).SetString(FrModulus, 10)
-	absorbing[length] = new(big.Int).SetUint64(0)
-
-	var inputBytes []byte
-	for i := 0; i < length; i++ {
-		//log.Println("absorbing", absorbing[i].(*big.Int).String())
-		res := absorbing[i].(*big.Int).FillBytes(make([]byte, 32))
-		inputBytes = append(inputBytes, res[:]...)
-	}
-	inputBytes = append(inputBytes, 0x0)
-	ethHashVal := sha256.Sum256(inputBytes)
-
-	inputCircuit := uints.NewU8Array(inputBytes)
-	hashValCircuit := uints.NewU8Array(ethHashVal[:])
-	err := VerifySha256(api, inputCircuit, hashValCircuit)
-	if err != nil {
-		return nil, err
-	}
-	ethHashBig := new(big.Int).SetBytes(ethHashVal[:])
-	absorbing[0] = ethHashBig
-	log.Println("ethHashBig", new(big.Int).Mod(ethHashBig, qMod).String())
-	return new(big.Int).Mod(ethHashBig, qMod), nil
 }
 
 func GetChallengesShPlonkCircuit(
@@ -635,8 +513,10 @@ func SqueezeChallenge(
 	length int,
 ) (frontend.Variable, error) {
 	// TODO: uint256 len = length * 32 + 1;
-	// +1 append 0x0, + 1
-	resLen := 32*(length) + 1 + 1 + 1
+	// +1 append 0x0 in inputBytes, +2 for ethHashVal[0:16], ethHashVal[16:]
+	// because use ecc.BN254.ScalarField() when compile, ethHashVal[0:32] exceed ScalarField
+	// need to split to ethHashVal[0:16], ethHashVal[16:] to store into absorbing[0] absorbing[1]
+	resLen := 32*(length) + 1 + 2
 	absorbing[length] = new(big.Int).SetUint64(0)
 	//log.Println("absorbing[0] start", absorbing[0])
 	result, err := api.Compiler().NewHint(Sha256Hint, resLen, absorbing[0:length]...)
@@ -660,12 +540,9 @@ func SqueezeChallenge(
 		return nil, err
 	}
 
-	//log.Println("result[1:33]", result[2:34])
 	ethHashFr := PackUInt8Variables(api, result[2:34]...)
 	absorbing[0] = result[0]
 	absorbing[1] = result[1]
-	//log.Println("absorbing[0] end", new(big.Int).Add(new(big.Int).Set()))
-	//log.Println("mod(api, ethHashBig)", mod(api, ethHashBig))
 	api.AssertIsEqual(PackUInt128Variables(api, absorbing[0:2]...), ethHashFr)
 	return ethHashFr, err
 }
