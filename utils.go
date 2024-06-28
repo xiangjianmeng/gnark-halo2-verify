@@ -1,10 +1,15 @@
 package main
 
 import (
+	"encoding/hex"
+	"fmt"
+	"math/big"
+	"regexp"
+	"strings"
+
 	"github.com/consensys/gnark/frontend"
 	"github.com/consensys/gnark/std/algebra/emulated/sw_emulated"
 	"github.com/consensys/gnark/std/math/emulated"
-	"math/big"
 )
 
 func PackUInt8BigInt(inputs ...*big.Int) *big.Int {
@@ -102,4 +107,46 @@ func ToPoint[T emulated.FieldParams](api frontend.API, point [2]frontend.Variabl
 		X: x,
 		Y: y,
 	}, nil
+}
+
+func extractAndConvert(input string) (string, string, error) {
+	re := regexp.MustCompile(`bn256\.G1\((\w+),\s(\w+)\)`)
+
+	matches := re.FindStringSubmatch(input)
+	if len(matches) != 3 {
+		return "", "", fmt.Errorf("invalid input format")
+	}
+
+	xStr := matches[1]
+	yStr := matches[2]
+
+	x10Str, err := hexToDecimalString(xStr)
+	if err != nil {
+		return "", "", fmt.Errorf("failed to decode x: %v", err)
+	}
+
+	y10Str, err := hexToDecimalString(yStr)
+	if err != nil {
+		return "", "", fmt.Errorf("failed to decode y: %v", err)
+	}
+
+	return x10Str, y10Str, nil
+}
+
+// Converts hex string to decimal string
+func hexToDecimalString(hexStr string) (string, error) {
+	// Strip leading "0x" if it exists
+	hexStr = strings.TrimPrefix(hexStr, "0x")
+
+	// Convert hex to bytes
+	bytes, err := hex.DecodeString(hexStr)
+	if err != nil {
+		return "", err
+	}
+
+	// Convert bytes to big.Int
+	bigInt := new(big.Int).SetBytes(bytes)
+
+	// Convert big.Int to decimal string
+	return bigInt.String(), nil
 }

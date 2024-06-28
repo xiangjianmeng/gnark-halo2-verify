@@ -1,10 +1,13 @@
 package main
 
 import (
+	"math/big"
+
 	"github.com/consensys/gnark/frontend"
 	"github.com/consensys/gnark/std/algebra/emulated/sw_emulated"
 	"github.com/consensys/gnark/std/math/emulated"
 	"github.com/consensys/gnark/std/math/emulated/emparams"
+	"github.com/ethereum/go-ethereum/crypto/bn256"
 )
 
 type MultiScalarMul[T, S emulated.FieldParams] struct {
@@ -38,6 +41,82 @@ func VerifyMultiScalarMul[T, S emulated.FieldParams](api frontend.API, points []
 	return nil
 }
 
+func MsmHint(_ *big.Int, inputs []*big.Int, results []*big.Int) error {
+	if len(inputs) != 3 {
+		panic("MulAddHint expects 3 input operands")
+	}
+	var blob []byte
+	bufByte0 := inputs[0].FillBytes(make([]byte, 32))
+	blob = append(blob, bufByte0[:]...)
+	bufByte1 := inputs[1].FillBytes(make([]byte, 32))
+	blob = append(blob, bufByte1[:]...)
+	p := new(bn256.G1)
+	_, err := p.Unmarshal(blob)
+	if err != nil {
+		return err
+	}
+	res := new(bn256.G1)
+	res.ScalarMult(p, inputs[2])
+
+	xStr, yStr, _ := extractAndConvert(res.String())
+	results[0], _ = new(big.Int).SetString(xStr, 10)
+	results[1], _ = new(big.Int).SetString(yStr, 10)
+	return nil
+}
+
+func CalcVerifyBN254Msm(api frontend.API, x, y, k frontend.Variable) ([2]frontend.Variable, error) {
+	result, err := api.Compiler().NewHint(MsmHint, 2, x, y, k)
+	if err != nil {
+		panic(err)
+	}
+	expectedX, expectedY := mod(api, result[0]), mod(api, result[1])
+	err = VerifyBN254ScalarMul(api, [2]frontend.Variable{x, y}, k, [2]frontend.Variable{expectedX, expectedY})
+	return [2]frontend.Variable{expectedX, expectedY}, err
+}
+
+func AddHint(_ *big.Int, inputs []*big.Int, results []*big.Int) error {
+	if len(inputs) != 4 {
+		panic("MulAddHint expects 3 input operands")
+	}
+
+	var blob1 []byte
+	bufByte0 := inputs[0].FillBytes(make([]byte, 32))
+	blob1 = append(blob1, bufByte0[:]...)
+	bufByte1 := inputs[1].FillBytes(make([]byte, 32))
+	blob1 = append(blob1, bufByte1[:]...)
+	p1 := new(bn256.G1)
+	_, err := p1.Unmarshal(blob1)
+	if err != nil {
+		return err
+	}
+
+	var blob2 []byte
+	bufByte2 := inputs[2].FillBytes(make([]byte, 32))
+	blob2 = append(blob2, bufByte2[:]...)
+	bufByte3 := inputs[3].FillBytes(make([]byte, 32))
+	blob2 = append(blob2, bufByte3[:]...)
+	p2 := new(bn256.G1)
+	_, err = p2.Unmarshal(blob2)
+	if err != nil {
+		return err
+	}
+
+	res := new(bn256.G1)
+	res = res.Add(p1, p2)
+
+	xStr, yStr, _ := extractAndConvert(res.String())
+	results[0], _ = new(big.Int).SetString(xStr, 10)
+	results[1], _ = new(big.Int).SetString(yStr, 10)
+	return nil
+}
+
+func CalcVerifyBN254Add(api frontend.API, x1, y1, x2, y2 frontend.Variable) ([2]frontend.Variable, error) {
+	result, err := api.Compiler().NewHint(AddHint, 2, x1, y1, x2, y2)
+	expectedX, expectedY := mod(api, result[0]), mod(api, result[1])
+	err = VerifyBN254Add(api, [2]frontend.Variable{x1, y1}, [2]frontend.Variable{x2, y2}, [2]frontend.Variable{expectedX, expectedY})
+	return [2]frontend.Variable{expectedX, expectedY}, err
+}
+
 type BN254ScalarMul struct {
 	Point  [2]frontend.Variable
 	Scalar frontend.Variable
@@ -60,18 +139,6 @@ func VerifyBN254ScalarMul(
 	if err != nil {
 		return err
 	}
-	//x, err := new(fp.Element).SetInterface(point[0])
-	//if err != nil {
-	//	return err
-	//}
-	//y, err := new(fp.Element).SetInterface(point[1])
-	//if err != nil {
-	//	return err
-	//}
-	//ps := sw_emulated.AffinePoint[emulated.BN254Fp]{
-	//	X: emulated.ValueOf[emparams.BN254Fp](point[0]),
-	//	Y: emulated.ValueOf[emparams.BN254Fp](point[1]),
-	//}
 
 	scalarEle, err := ToElement[emulated.BN254Fr](api, scalar)
 	if err != nil {

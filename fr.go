@@ -11,7 +11,7 @@ func ecc_mul(api frontend.API, input []frontend.Variable, offset int) error {
 	//	return nil
 	//}
 
-	res, err := CalcVerifyBN256Msm(api, input[offset], input[offset+1], input[offset+2])
+	res, err := CalcVerifyBN254Msm(api, input[offset], input[offset+1], input[offset+2])
 	if err != nil {
 		return err
 	}
@@ -26,7 +26,7 @@ func ecc_mul_add(api frontend.API, buf []frontend.Variable, offset int) error {
 		return err
 	}
 
-	res, err := CalcVerifyBN256Add(api, buf[offset], buf[offset+1], buf[offset+2], buf[offset+3])
+	res, err := CalcVerifyBN254Add(api, buf[offset], buf[offset+1], buf[offset+2], buf[offset+3])
 	buf[offset] = res[0]
 	buf[offset+1] = res[1]
 	return nil

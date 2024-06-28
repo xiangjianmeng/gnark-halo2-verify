@@ -1,6 +1,7 @@
 package main
 
 import (
+	"github.com/consensys/gnark/frontend"
 	"log"
 	"math/big"
 	"testing"
@@ -33,17 +34,6 @@ func TestMsmSolve(t *testing.T) {
 	res := new(bn256.G1)
 	res.ScalarMult(p, scalar)
 
-	var g10 = bn254.G1Affine{}
-	_, err = g10.X.SetString(x.String())
-	if err != nil {
-		panic(err)
-	}
-	_, err = g10.Y.SetString(y.String())
-	if err != nil {
-		panic(err)
-	}
-	assert.True(g10.IsOnCurve())
-
 	xStr, yStr, _ := extractAndConvert(res.String())
 
 	log.Println(xStr, yStr)
@@ -55,19 +45,16 @@ func TestMsmSolve(t *testing.T) {
 	assert.NoError(err)
 	assert.True(resCircuit.IsOnCurve())
 
-	witnessCircuit := BN256MsmCircuit{
-		G1Point: new(bn254.G1Affine),
-		Scalar:  new(big.Int),
-		Res:     new(bn254.G1Affine),
+	witnessCircuit := BN254ScalarMul{
+		Point:  [2]frontend.Variable{x, y},
+		Scalar: frontend.Variable(scalar),
+		Res:    [2]frontend.Variable{resCircuit.X, resCircuit.Y},
 	}
-	circuit := BN256MsmCircuit{
-		G1Point: new(bn254.G1Affine),
-		Scalar:  new(big.Int),
-		Res:     new(bn254.G1Affine),
+	circuit := BN254ScalarMul{
+		Point:  [2]frontend.Variable{},
+		Scalar: frontend.Variable(scalar),
+		Res:    [2]frontend.Variable{},
 	}
-	witnessCircuit.G1Point = &g10
-	witnessCircuit.Scalar = scalar
-	witnessCircuit.Res = &resCircuit
 
 	err = test.IsSolved(&circuit, &witnessCircuit, ecc.BN254.ScalarField())
 	assert.NoError(err)
