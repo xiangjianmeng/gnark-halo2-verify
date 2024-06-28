@@ -2,8 +2,6 @@
 package main
 
 import (
-	"bytes"
-	"fmt"
 	"github.com/consensys/gnark/backend/groth16"
 	"github.com/consensys/gnark/frontend/cs/r1cs"
 	"log"
@@ -181,32 +179,12 @@ func main() {
 
 	log.Println("start setup")
 
-	pk, vk, err := groth16.Setup(r1cs)
-	if err != nil {
-		panic(err)
-	}
-
-	var buf bytes.Buffer
-	n, err := pk.WriteRawTo(&buf)
-	fmt.Println("n ", n, err, pk.NbG1(), pk.NbG2())
-	err_store := store_r1cs_to_file("./pk.txt", &buf)
-	fmt.Println("store err", err_store)
-	new_buf, err := read_r1cs_from_file("./pk.txt")
-	fmt.Println("read err", err)
-	newPK := groth16.NewProvingKey(ecc.BN254)
-	_, _ = newPK.ReadFrom(new_buf)
-	fmt.Println("newPK", newPK.NbG1(), newPK.NbG2())
-
-	var bufVkey bytes.Buffer
-	n, err = vk.WriteRawTo(&bufVkey)
-	fmt.Println("n ", n, err, vk.NbG1(), vk.NbG2())
-	err_store = store_r1cs_to_file("./vk.txt", &bufVkey)
-	fmt.Println("store err", err_store)
-	newBufVkey, err := read_r1cs_from_file("./vk.txt")
-	fmt.Println("read err", err)
-	newVK := groth16.NewVerifyingKey(ecc.BN254)
-	_, _ = newVK.ReadFrom(newBufVkey)
-	fmt.Println("newVK", newVK.NbG1(), newVK.NbG2())
+	//pk, vk, err := groth16.Setup(r1cs)
+	//if err != nil {
+	//	panic(err)
+	//}
+	//store_pk_vk(pk, vk)
+	pk, vk := read_pk_vk()
 
 	log.Println("end setup")
 
