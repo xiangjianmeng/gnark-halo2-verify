@@ -2,6 +2,8 @@
 package main
 
 import (
+	"bytes"
+	"fmt"
 	"github.com/consensys/gnark/backend/groth16"
 	"github.com/consensys/gnark/frontend/cs/r1cs"
 	"log"
@@ -179,15 +181,21 @@ func main() {
 
 	log.Println("start setup")
 
-	//srs, srsLagrange, err := unsafekzg.NewSRS(r1cs)
-	//if err != nil {
-	//	panic(err)
-	//}
-
 	pk, vk, err := groth16.Setup(r1cs)
 	if err != nil {
 		panic(err)
 	}
+
+	var buf bytes.Buffer
+	n, err := pk.WriteRawTo(&buf)
+	fmt.Println("n ", n, err, pk.CurveID())
+
+	store_r1cs_to_file("./pk.txt", &buf)
+	new_buf, err := read_r1cs_from_file("./pk.txt")
+	fmt.Println("read err", err)
+	newPK := groth16.NewProvingKey(ecc.BN254)
+	_, _ = newPK.ReadFrom(new_buf)
+	fmt.Println("newPK", newPK.CurveID())
 
 	log.Println("end setup")
 
