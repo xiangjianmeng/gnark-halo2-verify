@@ -198,6 +198,17 @@ func main() {
 	_, _ = newPK.ReadFrom(new_buf)
 	fmt.Println("newPK", newPK.CurveID())
 
+	var bufVkey bytes.Buffer
+	n, err = vk.WriteRawTo(&bufVkey)
+	fmt.Println("n ", n, err, vk.CurveID())
+	err_store = store_r1cs_to_file("./vk.txt", &bufVkey)
+	fmt.Println("store err", err_store)
+	newBufVkey, err := read_r1cs_from_file("./vk.txt")
+	fmt.Println("read err", err)
+	newVK := groth16.NewVerifyingKey(ecc.BN254)
+	_, _ = newVK.ReadFrom(newBufVkey)
+	fmt.Println("newVK", newVK.CurveID())
+
 	log.Println("end setup")
 
 	{
