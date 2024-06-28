@@ -51,6 +51,7 @@ func read_pk_vk() (groth16.ProvingKey, groth16.VerifyingKey) {
 	if err != nil {
 		panic(err)
 	}
+	return pk, vk
 }
 
 func store_r1cs_to_file(fileName string, buf *bytes.Buffer) error {
