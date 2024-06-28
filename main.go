@@ -183,8 +183,8 @@ func main() {
 	//if err != nil {
 	//	panic(err)
 	//}
-	//store_pk_vk(pk, vk)
-	pk, vk := read_pk_vk()
+	//storePkVk(pk, vk)
+	pk, vk := readPkVk()
 
 	log.Println("end setup")
 

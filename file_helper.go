@@ -9,13 +9,13 @@ import (
 	"os"
 )
 
-func store_pk_vk(pk groth16.ProvingKey, vk groth16.VerifyingKey) {
+func storePkVk(pk groth16.ProvingKey, vk groth16.VerifyingKey) {
 	var buf bytes.Buffer
 	_, err := pk.WriteRawTo(&buf)
 	if err != nil {
 		panic(err)
 	}
-	err = store_r1cs_to_file("./pk.txt", &buf)
+	err = storeBufferToFile("./pk.txt", &buf)
 	if err != nil {
 		panic(err)
 	}
@@ -25,14 +25,14 @@ func store_pk_vk(pk groth16.ProvingKey, vk groth16.VerifyingKey) {
 	if err != nil {
 		panic(err)
 	}
-	err = store_r1cs_to_file("./vk.txt", &bufVkey)
+	err = storeBufferToFile("./vk.txt", &bufVkey)
 	if err != nil {
 		panic(err)
 	}
 }
 
-func read_pk_vk() (groth16.ProvingKey, groth16.VerifyingKey) {
-	pkBuf, err := read_r1cs_from_file("./pk.txt")
+func readPkVk() (groth16.ProvingKey, groth16.VerifyingKey) {
+	pkBuf, err := readBufferFromFile("./pk.txt")
 	if err != nil {
 		panic(err)
 	}
@@ -42,7 +42,7 @@ func read_pk_vk() (groth16.ProvingKey, groth16.VerifyingKey) {
 		panic(err)
 	}
 
-	vkeyBuf, err := read_r1cs_from_file("./vk.txt")
+	vkeyBuf, err := readBufferFromFile("./vk.txt")
 	if err != nil {
 		panic(err)
 	}
@@ -54,7 +54,7 @@ func read_pk_vk() (groth16.ProvingKey, groth16.VerifyingKey) {
 	return pk, vk
 }
 
-func store_r1cs_to_file(fileName string, buf *bytes.Buffer) error {
+func storeBufferToFile(fileName string, buf *bytes.Buffer) error {
 	file, err := os.Create(fileName)
 	if err != nil {
 		return err
@@ -73,7 +73,7 @@ func store_r1cs_to_file(fileName string, buf *bytes.Buffer) error {
 	return nil
 }
 
-func read_r1cs_from_file(fileName string) (*bytes.Buffer, error) {
+func readBufferFromFile(fileName string) (*bytes.Buffer, error) {
 	file, err := os.Open(fileName)
 	if err != nil {
 		return nil, err
