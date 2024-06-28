@@ -190,7 +190,8 @@ func main() {
 	n, err := pk.WriteRawTo(&buf)
 	fmt.Println("n ", n, err, pk.CurveID())
 
-	store_r1cs_to_file("./pk.txt", &buf)
+	err_store := store_r1cs_to_file("./pk.txt", &buf)
+	fmt.Println("store err", err_store)
 	new_buf, err := read_r1cs_from_file("./pk.txt")
 	fmt.Println("read err", err)
 	newPK := groth16.NewProvingKey(ecc.BN254)
