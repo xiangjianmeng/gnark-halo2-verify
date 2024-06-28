@@ -179,12 +179,12 @@ func main() {
 
 	log.Println("start setup")
 
-	pk, vk, err := groth16.Setup(r1cs)
-	if err != nil {
-		panic(err)
-	}
-	store_pk_vk(pk, vk)
-	//pk, vk := read_pk_vk()
+	//pk, vk, err := groth16.Setup(r1cs)
+	//if err != nil {
+	//	panic(err)
+	//}
+	//store_pk_vk(pk, vk)
+	pk, vk := read_pk_vk()
 
 	log.Println("end setup")
 
