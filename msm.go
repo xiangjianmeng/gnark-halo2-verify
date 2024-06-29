@@ -1,8 +1,6 @@
 package main
 
 import (
-	"encoding/hex"
-	"fmt"
 	"math/big"
 
 	"github.com/consensys/gnark/frontend"
@@ -53,7 +51,6 @@ func MsmHint(_ *big.Int, inputs []*big.Int, results []*big.Int) error {
 	bufByte1 := inputs[1].FillBytes(make([]byte, 32))
 	blob = append(blob, bufByte1[:]...)
 	p := new(bn256.G1)
-	fmt.Println("MsmHint blon", hex.EncodeToString(blob))
 	_, err := p.Unmarshal(blob)
 	if err != nil {
 		return err
@@ -88,7 +85,6 @@ func AddHint(_ *big.Int, inputs []*big.Int, results []*big.Int) error {
 	bufByte1 := inputs[1].FillBytes(make([]byte, 32))
 	blob1 = append(blob1, bufByte1[:]...)
 	p1 := new(bn256.G1)
-	fmt.Println("AddHint blon-1", hex.EncodeToString(blob1))
 	_, err := p1.Unmarshal(blob1)
 	if err != nil {
 		return err
@@ -100,7 +96,6 @@ func AddHint(_ *big.Int, inputs []*big.Int, results []*big.Int) error {
 	bufByte3 := inputs[3].FillBytes(make([]byte, 32))
 	blob2 = append(blob2, bufByte3[:]...)
 	p2 := new(bn256.G1)
-	fmt.Println("AddHint blon-2", hex.EncodeToString(blob2))
 	_, err = p2.Unmarshal(blob2)
 	if err != nil {
 		return err
