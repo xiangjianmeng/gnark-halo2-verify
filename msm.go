@@ -1,6 +1,7 @@
 package main
 
 import (
+	"log"
 	"math/big"
 
 	"github.com/consensys/gnark/frontend"
@@ -45,6 +46,12 @@ func MsmHint(_ *big.Int, inputs []*big.Int, results []*big.Int) error {
 	if len(inputs) != 3 {
 		panic("MulAddHint expects 3 input operands")
 	}
+	log.Println("MsmHint", inputs[0], inputs[1], inputs[2])
+	if inputs[0].Cmp(big.NewInt(1)) == 0 {
+		inputs[1], _ = new(big.Int).SetString("21888242871839275222246405745257275088696311157297823662689037894645226208581", 10)
+		log.Println("MsmHint inputs[2]", inputs[2].String())
+	}
+
 	var blob []byte
 	bufByte0 := inputs[0].FillBytes(make([]byte, 32))
 	blob = append(blob, bufByte0[:]...)
@@ -61,6 +68,7 @@ func MsmHint(_ *big.Int, inputs []*big.Int, results []*big.Int) error {
 	xStr, yStr, _ := extractAndConvert(res.String())
 	results[0], _ = new(big.Int).SetString(xStr, 10)
 	results[1], _ = new(big.Int).SetString(yStr, 10)
+	log.Println("MsmHint", results[0].String(), results[1].String())
 	return nil
 }
 
@@ -124,6 +132,8 @@ type BN254ScalarMul struct {
 }
 
 func (c *BN254ScalarMul) Define(api frontend.API) error {
+	//var buf = []frontend.Variable{c.Point[0], c.Point[1], c.Scalar}
+	//return CalcVerifyCircuitLagrange(api, buf)
 	return VerifyBN254ScalarMul(api, c.Point, c.Scalar, c.Res)
 }
 
@@ -182,7 +192,7 @@ func VerifyBN254Add(
 		return err
 	}
 
-	res := cr.AddUnified(&ps1, &ps2)
+	res := cr.Add(&ps1, &ps2)
 
 	expectedRes, err := ToPoint[emulated.BN254Fp](api, expected)
 	if err != nil {

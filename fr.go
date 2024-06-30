@@ -1,6 +1,7 @@
 package main
 
 import (
+	"log"
 	"math/big"
 
 	"github.com/consensys/gnark/frontend"
@@ -48,11 +49,15 @@ func fr_mul(api frontend.API, a frontend.Variable, b frontend.Variable) frontend
 }
 
 func mod(api frontend.API, a frontend.Variable) frontend.Variable {
+	log.Println("mod a", a)
 	results, err := api.Compiler().NewHint(modHint, 2, a)
 	if err != nil {
 		return err
 	}
-	api.AssertIsEqual(api.Add(results[1], api.Mul(results[0], MODULUS)), a)
+	pro := api.Mul(results[0], MODULUS)
+	res := api.Add(results[1], pro)
+	log.Println("mod", results[0], results[1])
+	api.AssertIsEqual(res, a)
 	return results[1]
 }
 
@@ -62,6 +67,8 @@ func modHint(_ *big.Int, inputs []*big.Int, results []*big.Int) error {
 
 	results[0] = d
 	results[1] = r
+
+	log.Println("modHint", results[0], results[1])
 
 	return nil
 }
@@ -84,6 +91,7 @@ func fr_sub(api frontend.API, a frontend.Variable, b frontend.Variable) frontend
 func fr_div(api frontend.API, a frontend.Variable, b frontend.Variable, aux frontend.Variable) frontend.Variable {
 	r := fr_mul(api, b, aux)
 	api.AssertIsEqual(r, a)
+	log.Println("fr_div", b, r)
 	return mod(api, aux)
 }
 

@@ -99,7 +99,3 @@ func TestCircuitCompile(t *testing.T) {
 	_, err := frontend.Compile(ecc.BN254.ScalarField(), r1cs.NewBuilder, &witnessCircuit)
 	grkAssert.NoError(err)
 }
-
-func TestCompileCircuit(t *testing.T) {
-
-}

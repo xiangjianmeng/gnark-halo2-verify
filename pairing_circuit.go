@@ -51,6 +51,7 @@ func VerifyBN256Pairing(
 }
 
 func FillVerifyCircuitsG1(api frontend.API, x1, y1, x2, y2 frontend.Variable) ([2]*sw_bn254.G1Affine, error) {
+	log.Println("FillVerifyCircuitsG1", x1, y1, x2, y2)
 	p1, err := ToPoint[emulated.BN254Fp](api, [2]frontend.Variable{x1, y1})
 	if err != nil {
 		return [2]*sw_bn254.G1Affine{}, err
@@ -60,23 +61,6 @@ func FillVerifyCircuitsG1(api frontend.API, x1, y1, x2, y2 frontend.Variable) ([
 	if err != nil {
 		return [2]*sw_bn254.G1Affine{}, err
 	}
-
-	//var g10 = bn254.G1Affine{}
-	//_, err1 := g10.X.SetInterface(x1)
-	//_, err2 := g10.Y.SetInterface(y1)
-	//if err1 != nil || err2 != nil || !g10.IsOnCurve() {
-	//	panic(fmt.Sprintf("err1 = %v, err2 = %v", err1, err2))
-	//}
-	//
-	//var g11 = bn254.G1Affine{}
-	//_, err1 = g11.X.SetInterface(x2)
-	//_, err2 = g11.Y.SetInterface(y2)
-	//if err1 != nil || err2 != nil || !g11.IsOnCurve() {
-	//	panic(fmt.Sprintf("err1 = %v, err2 = %v", err1, err2))
-	//}
-
-	//swG10 := sw_bn254.NewG1Affine(g10)
-	//swG11 := sw_bn254.NewG1Affine(g11)
 
 	return [2]*sw_bn254.G1Affine{&p1, &p2}, nil
 }

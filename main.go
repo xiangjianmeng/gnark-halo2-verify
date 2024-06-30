@@ -151,26 +151,19 @@ func main() {
 		TargetInst: make([]frontend.Variable, 4),
 	}
 
-	{
-		for i := 0; i < len(proofStr); i++ {
-			aggCircuit.Proof[i] = big.NewInt(0)
-		}
-		aggCircuit.VerifyInst[0] = big.NewInt(0)
-		for i := 0; i < len(auxStr); i++ {
-			aggCircuit.Aux[i] = big.NewInt(0)
-		}
-		aggCircuit.TargetInst[0] = big.NewInt(0)
-		aggCircuit.TargetInst[1] = big.NewInt(0)
-		aggCircuit.TargetInst[2] = big.NewInt(0)
-		aggCircuit.TargetInst[3] = big.NewInt(0)
-	}
-
-	var witnessCircuit = AggregatorCircuit{
-		Proof:      make([]frontend.Variable, len(proofStr)),
-		VerifyInst: make([]frontend.Variable, 1),
-		Aux:        make([]frontend.Variable, len(auxStr)),
-		TargetInst: make([]frontend.Variable, 4),
-	}
+	//{
+	//	for i := 0; i < len(proofStr); i++ {
+	//		aggCircuit.Proof[i] = big.NewInt(0)
+	//	}
+	//	aggCircuit.VerifyInst[0] = big.NewInt(0)
+	//	for i := 0; i < len(auxStr); i++ {
+	//		aggCircuit.Aux[i] = big.NewInt(0)
+	//	}
+	//	aggCircuit.TargetInst[0] = big.NewInt(0)
+	//	aggCircuit.TargetInst[1] = big.NewInt(0)
+	//	aggCircuit.TargetInst[2] = big.NewInt(0)
+	//	aggCircuit.TargetInst[3] = big.NewInt(0)
+	//}
 
 	r1cs, err := frontend.Compile(ecc.BN254.ScalarField(), r1cs.NewBuilder, &aggCircuit)
 	if err != nil {
@@ -189,28 +182,70 @@ func main() {
 		panic(err)
 	}
 
+	fpk, err := os.Create("groth16_pk")
+	if err != nil {
+		log.Fatalln(err)
+	}
+	_, err = pk.WriteRawTo(fpk)
+	if err != nil {
+		log.Fatalln(err)
+	}
+
+	fvk, err := os.Create("groth16_vk")
+	if err != nil {
+		log.Fatalln(err)
+	}
+	_, err = vk.WriteRawTo(fvk)
+	if err != nil {
+		log.Fatalln(err)
+	}
+
+	//fpk, err := os.Open("groth16_pk")
+	//if err != nil {
+	//	log.Fatalln(err)
+	//}
+	//pk := groth16.NewProvingKey(ecc.BN254)
+	//_, err = pk.ReadFrom(fpk)
+	//if err != nil {
+	//	log.Fatalln(err)
+	//}
+	//fvk, err := os.Open("groth16_vk")
+	//if err != nil {
+	//	log.Fatalln(err)
+	//}
+	//vk := groth16.NewVerifyingKey(ecc.BN254)
+	//_, err = vk.ReadFrom(fvk)
+	//if err != nil {
+	//	log.Fatalln(err)
+	//}
+
 	log.Println("end setup")
 
-	{
-		for i := 0; i < len(proofStr); i++ {
-			proof, _ := big.NewInt(0).SetString(proofStr[i], 10)
-			witnessCircuit.Proof[i] = proof
-		}
-		verifyIns, _ := big.NewInt(0).SetString("10573525131658455000365299935369648652552518565632155338390913030155084554858", 10)
-		witnessCircuit.VerifyInst[0] = verifyIns
-		for i := 0; i < len(auxStr); i++ {
-			aux, _ := big.NewInt(0).SetString(auxStr[i], 10)
-			witnessCircuit.Aux[i] = aux
-		}
-		target0, _ := big.NewInt(0).SetString("7059793422771910484", 10)
-		target1, _ := big.NewInt(0).SetString("2556686405730241944", 10)
-		target2, _ := big.NewInt(0).SetString("2133554817341762742", 10)
-		target3, _ := big.NewInt(0).SetString("8974371243071329347", 10)
-		witnessCircuit.TargetInst[0] = target0
-		witnessCircuit.TargetInst[1] = target1
-		witnessCircuit.TargetInst[2] = target2
-		witnessCircuit.TargetInst[3] = target3
+	var witnessCircuit = AggregatorCircuit{
+		Proof:      make([]frontend.Variable, len(proofStr)),
+		VerifyInst: make([]frontend.Variable, 1),
+		Aux:        make([]frontend.Variable, len(auxStr)),
+		TargetInst: make([]frontend.Variable, 4),
 	}
+
+	for i := 0; i < len(proofStr); i++ {
+		proof, _ := big.NewInt(0).SetString(proofStr[i], 10)
+		witnessCircuit.Proof[i] = proof
+	}
+	verifyIns, _ := big.NewInt(0).SetString("10573525131658455000365299935369648652552518565632155338390913030155084554858", 10)
+	witnessCircuit.VerifyInst[0] = verifyIns
+	for i := 0; i < len(auxStr); i++ {
+		aux, _ := big.NewInt(0).SetString(auxStr[i], 10)
+		witnessCircuit.Aux[i] = aux
+	}
+	target0, _ := big.NewInt(0).SetString("7059793422771910484", 10)
+	target1, _ := big.NewInt(0).SetString("2556686405730241944", 10)
+	target2, _ := big.NewInt(0).SetString("2133554817341762742", 10)
+	target3, _ := big.NewInt(0).SetString("8974371243071329347", 10)
+	witnessCircuit.TargetInst[0] = target0
+	witnessCircuit.TargetInst[1] = target1
+	witnessCircuit.TargetInst[2] = target2
+	witnessCircuit.TargetInst[3] = target3
 
 	witness, err := frontend.NewWitness(&witnessCircuit, ecc.BN254.ScalarField())
 	if err != nil {

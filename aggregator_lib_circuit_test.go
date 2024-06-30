@@ -1,7 +1,9 @@
 package main
 
 import (
+	"github.com/consensys/gnark/backend/groth16"
 	"github.com/consensys/gnark/frontend"
+	"github.com/consensys/gnark/frontend/cs/r1cs"
 	"log"
 	"math/big"
 	"testing"
@@ -17,8 +19,9 @@ import (
 
 func TestMsmSolve(t *testing.T) {
 	assert := test.NewAssert(t)
-	x, _ := new(big.Int).SetString("13534086339230182803823178260078315691269243572458753455438283544709107378988", 10)
-	y, _ := new(big.Int).SetString("9053077977614827188269653632534212501565186534180282672519599630892718179094", 10)
+	x, _ := new(big.Int).SetString("1", 10)
+	y, _ := new(big.Int).SetString("21888242871839275222246405745257275088696311157297823662689037894645226208581", 10)
+	scalar, _ := new(big.Int).SetString("21147276235438245106538451154094232271190030085887596632745409482267565260819", 10)
 
 	var blob []byte
 	blob = append(blob, x.FillBytes(make([]byte, 32))...)
@@ -28,15 +31,14 @@ func TestMsmSolve(t *testing.T) {
 	_, err := p.Unmarshal(blob)
 	assert.NoError(err)
 
-	log.Println(p.String())
+	log.Println("TestMsmSolve", p.String())
 
-	scalar, _ := new(big.Int).SetString("21018549926786911420919261871844456760738199621624594828144407595472474813958", 10)
 	res := new(bn256.G1)
 	res.ScalarMult(p, scalar)
 
 	xStr, yStr, _ := extractAndConvert(res.String())
 
-	log.Println(xStr, yStr)
+	log.Println("TestMsmSolve", xStr, yStr)
 
 	var resCircuit = bn254.G1Affine{}
 	_, err = resCircuit.X.SetString(xStr)
@@ -48,7 +50,7 @@ func TestMsmSolve(t *testing.T) {
 	witnessCircuit := BN254ScalarMul{
 		Point:  [2]frontend.Variable{x, y},
 		Scalar: frontend.Variable(scalar),
-		Res:    [2]frontend.Variable{resCircuit.X, resCircuit.Y},
+		Res:    [2]frontend.Variable{resCircuit.X.BigInt(new(big.Int)), resCircuit.Y.BigInt(new(big.Int))},
 	}
 	circuit := BN254ScalarMul{
 		Point:  [2]frontend.Variable{},
@@ -56,7 +58,35 @@ func TestMsmSolve(t *testing.T) {
 		Res:    [2]frontend.Variable{},
 	}
 
-	err = test.IsSolved(&circuit, &witnessCircuit, ecc.BN254.ScalarField())
+	r1cs, err := frontend.Compile(ecc.BN254.ScalarField(), r1cs.NewBuilder, &circuit)
+	if err != nil {
+		log.Fatalf("Failed to compile circuit: %v", err)
+	}
+
+	pk, vk, err := groth16.Setup(r1cs)
+	if err != nil {
+		log.Fatalf("Failed to setup keys: %v", err)
+	}
+
+	witness, err := frontend.NewWitness(&witnessCircuit, ecc.BN254.ScalarField())
+	if err != nil {
+		panic(err)
+	}
+	proof, err := groth16.Prove(r1cs, pk, witness)
+	if err != nil {
+		log.Fatalf("Failed to create proof: %v", err)
+	}
+
+	public, err := witness.Public()
+	if err != nil {
+		log.Fatalf("Failed to Public: %v", err)
+	}
+
+	if err := groth16.Verify(proof, vk, public); err != nil {
+		log.Fatalf("Failed to verify proof: %v", err)
+	}
+
+	//err = test.IsSolved(&circuit, &witnessCircuit, ecc.BN254.ScalarField())
 	assert.NoError(err)
 }
 
@@ -116,10 +146,10 @@ func TestKeccak256Circuit(t *testing.T) {
 
 func TestCheckOnCurveCircuit(t *testing.T) {
 	assert := test.NewAssert(t)
-	x, _ := new(big.Int).SetString("1", 10)
-	y, _ := new(big.Int).SetString("21888242871839275222246405745257275088696311157297823662689037894645226208581", 10)
-	//x, _ := new(big.Int).SetString("13534086339230182803823178260078315691269243572458753455438283544709107378988", 10)
-	//y, _ := new(big.Int).SetString("9053077977614827188269653632534212501565186534180282672519599630892718179094", 10)
+	//x, _ := new(big.Int).SetString("1", 10)
+	//y, _ := new(big.Int).SetString("21888242871839275222246405745257275088696311157297823662689037894645226208581", 10)
+	x, _ := new(big.Int).SetString("16773608191221444274034723634505800152348638783233618286564858032846349483658", 10)
+	y, _ := new(big.Int).SetString("5309254838970461055039540544217759521764333506680767687704942616109839409613", 10)
 
 	witnessCircuit := CheckOnCurveCircuit{
 		x,
@@ -273,4 +303,12 @@ func TestSqueezeChallenge(t *testing.T) {
 	//ethHashVal := sha256.Sum256(inputBytes)
 	//ethHashBig := new(big.Int).SetBytes(ethHashVal[:])
 	//log.Println(ethHashBig.Mod(ethHashBig, MODULUS))
+}
+
+func TestMod(t *testing.T) {
+	x, _ := new(big.Int).SetString("21147276235438245106538451154094232271190030085887596632745409482267565260819", 10)
+	//y, _ := new(big.Int).SetString("147946756881789318990833708069417712964", 10)
+	//log.Println(y.Add(y, MODULUS))
+
+	log.Println(x.Mod(x, MODULUS))
 }

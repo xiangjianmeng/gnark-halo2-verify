@@ -2,6 +2,7 @@ package main
 
 import (
 	"github.com/consensys/gnark/frontend"
+	"log"
 	"math/big"
 )
 
@@ -11,6 +12,7 @@ func VerifyProof3(
 	aux []frontend.Variable,
 	buf [43]frontend.Variable,
 ) ([43]frontend.Variable, error) {
+	log.Println("VerifyProof3 111111")
 	//frOne, _ := new(big.Int).SetString("1", 10)
 	buf[14], buf[15] = transcript[40], transcript[41]
 	buf[16] = fr_mul(api, buf[17], buf[35])
@@ -29,6 +31,7 @@ func VerifyProof3(
 		buf[21],
 		fr_mul(api, buf[30], buf[7]),
 	)
+	log.Println("VerifyProof3 222222")
 	err = ecc_mul_add(api, buf[:], 12)
 	if err != nil {
 		return [43]frontend.Variable{}, err
@@ -49,6 +52,7 @@ func VerifyProof3(
 		buf[21],
 		fr_mul(api, buf[20], buf[7]),
 	)
+	log.Println("VerifyProof3 333333")
 	err = ecc_mul_add(api, buf[:], 12)
 	if err != nil {
 		return [43]frontend.Variable{}, err
@@ -93,6 +97,7 @@ func VerifyProof3(
 		buf[21],
 		fr_mul(api, buf[17], buf[7]),
 	)
+	log.Println("VerifyProof3 4444444")
 	err = ecc_mul_add(api, buf[:], 12)
 	if err != nil {
 		return [43]frontend.Variable{}, err

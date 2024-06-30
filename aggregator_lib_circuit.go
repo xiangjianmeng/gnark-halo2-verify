@@ -24,6 +24,8 @@ func init() {
 	solver.RegisterHint(AddHint)
 	solver.RegisterHint(Keccak256Hint)
 	solver.RegisterHint(Sha256Hint)
+	solver.RegisterHint(Div128Hint)
+	solver.RegisterHint(modHint)
 }
 
 func CalcVerifyCircuitLagrange(api frontend.API, buf []frontend.Variable) error {

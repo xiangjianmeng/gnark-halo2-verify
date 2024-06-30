@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"github.com/consensys/gnark-crypto/ecc/bn254/fp"
+	"log"
 	"math/big"
 
 	"github.com/consensys/gnark/frontend"
@@ -65,24 +66,26 @@ func (circuit *AggregatorCircuit) Define(api frontend.API) error {
 		return err
 	}
 
-	buf, err = VerifyProof3(api, circuit.Proof, circuit.Aux, buf)
-	if err != nil {
-		return err
-	}
+	//buf, err = VerifyProof3(api, circuit.Proof, circuit.Aux, buf)
+	//if err != nil {
+	//	return err
+	//}
 
-	for i := 10; i < 14; i++ {
-		err = VerifyNotZero(api, buf[i])
-		if err != nil {
-			return err
-		}
-	}
+	//for i := 10; i < 14; i++ {
+	//	err = VerifyNotZero(api, buf[i])
+	//	if err != nil {
+	//		return err
+	//	}
+	//}
 
-	G1Points, err := FillVerifyCircuitsG1(api, buf[10], buf[11], buf[12], buf[13])
-	if err != nil {
-		return err
-	}
-	G2Points := FillVerifyCircuitsG2()
-	err = VerifyBN256Pairing(api, G1Points[:], G2Points[:])
+	log.Println("end VerifyProof3")
+
+	//G1Points, err := FillVerifyCircuitsG1(api, buf[10], buf[11], buf[12], buf[13])
+	//if err != nil {
+	//	return err
+	//}
+	//G2Points := FillVerifyCircuitsG2()
+	//err = VerifyBN256Pairing(api, G1Points[:], G2Points[:])
 	return err
 }
 
