@@ -1,21 +1,44 @@
 package main
 
 import (
-	"github.com/consensys/gnark/backend/groth16"
-	"github.com/consensys/gnark/frontend"
-	"github.com/consensys/gnark/frontend/cs/r1cs"
+	"encoding/json"
+	"fmt"
+	"github.com/consensys/gnark-crypto/ecc/bn254/fp"
+	"github.com/consensys/gnark/std/algebra/emulated/sw_bn254"
+	"github.com/consensys/gnark/std/algebra/emulated/sw_emulated"
+	"github.com/consensys/gnark/std/math/emulated"
+	"github.com/consensys/gnark/std/math/emulated/emparams"
 	"log"
 	"math/big"
+	"os"
 	"testing"
 
 	"crypto/sha256"
 	"github.com/consensys/gnark-crypto/ecc"
 	"github.com/consensys/gnark-crypto/ecc/bn254"
+	"github.com/consensys/gnark/backend/groth16"
+	"github.com/consensys/gnark/frontend"
+	"github.com/consensys/gnark/frontend/cs/r1cs"
 	"github.com/consensys/gnark/std/math/uints"
 	"github.com/consensys/gnark/test"
 	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/ethereum/go-ethereum/crypto/bn256"
 )
+
+type TestBN254ScalarMul struct {
+	Point  sw_bn254.G1Affine
+	Scalar sw_bn254.Scalar
+	Res    sw_bn254.G1Affine `gnark:",public"`
+}
+
+func (c *TestBN254ScalarMul) Define(api frontend.API) error {
+	cr, err := sw_emulated.New[emparams.BN254Fp, emparams.BN254Fr](api, sw_emulated.GetBN254Params())
+	if err != nil {
+		return err
+	}
+	res := cr.ScalarMul(&c.Point, &c.Scalar)
+	cr.AssertIsEqual(res, &c.Res)
+	return nil
+}
 
 func TestMsmSolve(t *testing.T) {
 	assert := test.NewAssert(t)
@@ -23,40 +46,57 @@ func TestMsmSolve(t *testing.T) {
 	y, _ := new(big.Int).SetString("21888242871839275222246405745257275088696311157297823662689037894645226208581", 10)
 	scalar, _ := new(big.Int).SetString("21147276235438245106538451154094232271190030085887596632745409482267565260819", 10)
 
-	var blob []byte
-	blob = append(blob, x.FillBytes(make([]byte, 32))...)
-	blob = append(blob, y.FillBytes(make([]byte, 32))...)
+	//var blob []byte
+	//blob = append(blob, x.FillBytes(make([]byte, 32))...)
+	//blob = append(blob, y.FillBytes(make([]byte, 32))...)
+	//
+	//p := new(bn256.G1)
+	//_, err := p.Unmarshal(blob)
+	//assert.NoError(err)
+	//
+	//res := new(bn256.G1)
+	//res.ScalarMult(p, scalar)
+	//xStr, yStr, _ := extractAndConvert(res.String())
+	//var resCircuit bn254.G1Affine
+	//_, err = resCircuit.X.SetString(xStr)
+	//assert.NoError(err)
+	//_, err = resCircuit.Y.SetString(yStr)
+	//assert.NoError(err)
 
-	p := new(bn256.G1)
-	_, err := p.Unmarshal(blob)
-	assert.NoError(err)
+	//xStr := "1"
+	//yStr := "21888242871839275222246405745257275088696311157297823662689037894645226208581"
+	//scaStr := "21147276235438245106538451154094232271190030085887596632745409482267565260819"
 
-	log.Println("TestMsmSolve", p.String())
+	//xEle, _ := new(fp.Element).SetString(xStr)
+	//yEle, _ := new(fp.Element).SetString(yStr)
 
-	res := new(bn256.G1)
-	res.ScalarMult(p, scalar)
-
-	xStr, yStr, _ := extractAndConvert(res.String())
-
-	log.Println("TestMsmSolve", xStr, yStr)
-
-	var resCircuit = bn254.G1Affine{}
-	_, err = resCircuit.X.SetString(xStr)
-	assert.NoError(err)
-	_, err = resCircuit.Y.SetString(yStr)
-	assert.NoError(err)
-	assert.True(resCircuit.IsOnCurve())
-
-	witnessCircuit := BN254ScalarMul{
-		Point:  [2]frontend.Variable{x, y},
-		Scalar: frontend.Variable(scalar),
-		Res:    [2]frontend.Variable{resCircuit.X.BigInt(new(big.Int)), resCircuit.Y.BigInt(new(big.Int))},
+	var point = bn254.G1Affine{
+		X: *new(fp.Element).SetBigInt(x),
+		Y: *new(fp.Element).SetBigInt(y),
 	}
-	circuit := BN254ScalarMul{
-		Point:  [2]frontend.Variable{},
-		Scalar: frontend.Variable(scalar),
-		Res:    [2]frontend.Variable{},
+	assert.True(point.IsOnCurve())
+	var res1 bn254.G1Affine
+	res1.ScalarMultiplication(&point, scalar)
+	//assert.Equal(resCircuit, res1)
+
+	//var u fr.Element
+	//scalarEle := u.SetBigInt(scalar)
+
+	witnessCircuit := TestBN254ScalarMul{
+		Point: sw_bn254.G1Affine{
+			X: emulated.ValueOf[emulated.BN254Fp](x),
+			Y: emulated.ValueOf[emulated.BN254Fp](y),
+		},
+		Scalar: emulated.ValueOf[emulated.BN254Fr](scalar),
+		Res: sw_bn254.G1Affine{
+			X: emulated.ValueOf[emulated.BN254Fp](res1.X),
+			Y: emulated.ValueOf[emulated.BN254Fp](res1.Y),
+		},
 	}
+	circuit := TestBN254ScalarMul{}
+
+	err := test.IsSolved(&circuit, &witnessCircuit, ecc.BN254.ScalarField())
+	assert.NoError(err)
 
 	r1cs, err := frontend.Compile(ecc.BN254.ScalarField(), r1cs.NewBuilder, &circuit)
 	if err != nil {
@@ -72,21 +112,145 @@ func TestMsmSolve(t *testing.T) {
 	if err != nil {
 		panic(err)
 	}
+
 	proof, err := groth16.Prove(r1cs, pk, witness)
 	if err != nil {
 		log.Fatalf("Failed to create proof: %v", err)
+	}
+	proofJSON, _ := json.MarshalIndent(proof, "", "    ")
+	_ = os.WriteFile("gnark_proof_test.json", proofJSON, 0644)
+	fProof, err := os.Create("proof_test")
+	if err != nil {
+		log.Fatalln(err)
+	}
+	_, err = proof.WriteRawTo(fProof)
+	if err != nil {
+		log.Fatalln(err)
 	}
 
 	public, err := witness.Public()
 	if err != nil {
 		log.Fatalf("Failed to Public: %v", err)
 	}
+	s, err := frontend.NewSchema(&witnessCircuit)
+	if err != nil {
+		panic(err)
+	}
+	publicWitnessJSON, err := public.ToJSON(s)
+	if err != nil {
+		panic(err)
+	}
+	_ = os.WriteFile("gnark_inputs_test.json", publicWitnessJSON, 0644)
+	fPublic, err := os.Create("public_test")
+	if err != nil {
+		log.Fatalln(err)
+	}
+	_, err = public.WriteTo(fPublic)
+	if err != nil {
+		log.Fatalln(err)
+	}
 
 	if err := groth16.Verify(proof, vk, public); err != nil {
 		log.Fatalf("Failed to verify proof: %v", err)
 	}
 
+	f, err := os.Create("contract_groth16_test.sol")
+	if err != nil {
+		log.Fatalln(err)
+	}
+	err = vk.ExportSolidity(f)
+	if err != nil {
+		log.Fatalln(err)
+	}
+
 	//err = test.IsSolved(&circuit, &witnessCircuit, ecc.BN254.ScalarField())
+	assert.NoError(err)
+}
+
+type SimpleCircuit struct {
+	X, Y frontend.Variable
+	Z    frontend.Variable `gnark:",public"`
+}
+
+func (c SimpleCircuit) Define(api frontend.API) error {
+	res := api.Add(c.X, c.Y)
+	api.AssertIsEqual(res, c.Z)
+	return nil
+}
+
+func TestExample(t *testing.T) {
+	assert := test.NewAssert(t)
+
+	witnessCircuit := SimpleCircuit{
+		X: 2,
+		Y: 3,
+		Z: 5,
+	}
+	circuit := SimpleCircuit{}
+	r1cs, err := frontend.Compile(ecc.BN254.ScalarField(), r1cs.NewBuilder, &circuit)
+	if err != nil {
+		log.Fatalf("Failed to compile circuit: %v", err)
+	}
+
+	pk, vk, err := groth16.Setup(r1cs)
+	if err != nil {
+		log.Fatalf("Failed to setup keys: %v", err)
+	}
+
+	witness, err := frontend.NewWitness(&witnessCircuit, ecc.BN254.ScalarField())
+	if err != nil {
+		panic(err)
+	}
+
+	proof, err := groth16.Prove(r1cs, pk, witness)
+	if err != nil {
+		log.Fatalf("Failed to create proof: %v", err)
+	}
+	proofJSON, _ := json.MarshalIndent(proof, "", "    ")
+	_ = os.WriteFile("gnark_proof_test.json", proofJSON, 0644)
+	fProof, err := os.Create("proof_test")
+	if err != nil {
+		log.Fatalln(err)
+	}
+	_, err = proof.WriteRawTo(fProof)
+	if err != nil {
+		log.Fatalln(err)
+	}
+
+	public, err := witness.Public()
+	if err != nil {
+		log.Fatalf("Failed to Public: %v", err)
+	}
+	s, err := frontend.NewSchema(&witnessCircuit)
+	if err != nil {
+		panic(err)
+	}
+	publicWitnessJSON, err := public.ToJSON(s)
+	if err != nil {
+		panic(err)
+	}
+	_ = os.WriteFile("gnark_inputs_test.json", publicWitnessJSON, 0644)
+	fPublic, err := os.Create("public_test")
+	if err != nil {
+		log.Fatalln(err)
+	}
+	_, err = public.WriteTo(fPublic)
+	if err != nil {
+		log.Fatalln(err)
+	}
+
+	if err := groth16.Verify(proof, vk, public); err != nil {
+		log.Fatalf("Failed to verify proof: %v", err)
+	}
+
+	f, err := os.Create("contract_groth16_test.sol")
+	if err != nil {
+		log.Fatalln(err)
+	}
+	err = vk.ExportSolidity(f)
+	if err != nil {
+		log.Fatalln(err)
+	}
 	assert.NoError(err)
 }
 
@@ -97,13 +261,9 @@ func TestSha2Circuit(t *testing.T) {
 
 	inputBytes := input.FillBytes(make([]byte, 32))
 	ethHashVal := sha256.Sum256(inputBytes)
-	//keccakHashVal := crypto.Keccak256Hash(inputBytes)
-	//log.Println(ethHashVal, keccakHashVal.Bytes())
 
 	inputCircuit := uints.NewU8Array(inputBytes)
 	hashValCircuit := uints.NewU8Array(ethHashVal[:])
-	log.Println(inputCircuit)
-	log.Println(hashValCircuit)
 	witnessCircuit := Sha256Circuit{
 		inputCircuit,
 		hashValCircuit,
@@ -124,13 +284,9 @@ func TestKeccak256Circuit(t *testing.T) {
 
 	inputBytes := input.FillBytes(make([]byte, 32))
 	keccakHashVal := crypto.Keccak256Hash(inputBytes)
-	//log.Println(inputBytes)
-	//log.Println(keccakHashVal.Bytes())
 
 	inputCircuit := uints.NewU8Array(inputBytes)
 	hashValCircuit := uints.NewU8Array(keccakHashVal.Bytes())
-	//log.Println(inputCircuit)
-	//log.Println(hashValCircuit)
 	witnessCircuit := Keccak256Circuit{
 		inputCircuit,
 		hashValCircuit,
@@ -287,22 +443,12 @@ func TestSqueezeChallenge(t *testing.T) {
 		"160358d426c794afa49b046600102e357de5e73e1bbe7ce217baeb8a48123c88",
 	}
 
-	//buf := make([]*big.Int, len(proofStr))
-	//for i := 0; i < len(bufStr); i++ {
-	//	buf[i], _ = new(big.Int).SetString(bufStr[i], 16)
-	//	log.Println(buf[i].String())
-	//}
-
 	var inputBytes []byte
 	for i := 0; i < len(bufStr); i++ {
 		res, _ := new(big.Int).SetString(bufStr[i], 16)
 		log.Println(res.String())
 		inputBytes = append(inputBytes, res.FillBytes(make([]byte, 32))...)
 	}
-	//inputBytes = append(inputBytes, 0x0)
-	//ethHashVal := sha256.Sum256(inputBytes)
-	//ethHashBig := new(big.Int).SetBytes(ethHashVal[:])
-	//log.Println(ethHashBig.Mod(ethHashBig, MODULUS))
 }
 
 func TestMod(t *testing.T) {
@@ -311,4 +457,74 @@ func TestMod(t *testing.T) {
 	//log.Println(y.Add(y, MODULUS))
 
 	log.Println(x.Mod(x, MODULUS))
+}
+
+func TestBigInt(t *testing.T) {
+	proofData, err := os.ReadFile("proof_test")
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	proofRes := dataToU256(proofData, 256, 4)
+	//if len(proofRes) != 12 {
+	//	panic("invalid proof")
+	//}
+	fmt.Print("[")
+	for i := 0; i < 8; i++ {
+		fmt.Print(proofRes[i].String())
+		if i != 7 {
+			fmt.Print(",")
+		}
+	}
+	fmt.Print("]\n")
+
+	fmt.Print("[")
+	for i := 8; i < 10; i++ {
+		fmt.Print(proofRes[i].String())
+		if i != 9 {
+			fmt.Print(",")
+		}
+	}
+	fmt.Print("]\n")
+
+	fmt.Print("[")
+	for i := 10; i < 12; i++ {
+		fmt.Print(proofRes[i].String())
+		if i != 11 {
+			fmt.Print(",")
+		}
+	}
+	fmt.Print("]\n")
+
+	pubData, err := os.ReadFile("public_test")
+	if err != nil {
+		log.Fatal(err)
+	}
+	pubRes := dataToU256(pubData, 0, 12)
+	fmt.Print("[")
+	for i := 0; i < len(pubRes); i++ {
+		fmt.Print(pubRes[i].String())
+		if i != len(pubRes)-1 {
+			fmt.Print(",")
+		}
+	}
+	fmt.Print("]\n")
+}
+
+func dataToU256(data []byte, start, skip int) []*big.Int {
+	// Process the data in 32-byte chunks
+	var result []*big.Int
+	for i := 0; i < len(data); i += 32 {
+		if i == start {
+			for j := 0; j < skip; j++ {
+				i++
+			}
+		}
+		chunk := data[i : i+32]
+
+		// Convert bytes to big.Int
+		bigInt := new(big.Int).SetBytes(chunk)
+		result = append(result, bigInt)
+	}
+	return result
 }

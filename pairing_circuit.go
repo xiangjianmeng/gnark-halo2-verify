@@ -51,7 +51,7 @@ func VerifyBN256Pairing(
 }
 
 func FillVerifyCircuitsG1(api frontend.API, x1, y1, x2, y2 frontend.Variable) ([2]*sw_bn254.G1Affine, error) {
-	log.Println("FillVerifyCircuitsG1", x1, y1, x2, y2)
+	//log.Println("FillVerifyCircuitsG1", x1, y1, x2, y2)
 	p1, err := ToPoint[emulated.BN254Fp](api, [2]frontend.Variable{x1, y1})
 	if err != nil {
 		return [2]*sw_bn254.G1Affine{}, err

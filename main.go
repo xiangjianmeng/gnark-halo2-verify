@@ -2,6 +2,7 @@
 package main
 
 import (
+	"encoding/json"
 	"github.com/consensys/gnark/backend/groth16"
 	"github.com/consensys/gnark/frontend/cs/r1cs"
 	"log"
@@ -151,20 +152,6 @@ func main() {
 		TargetInst: make([]frontend.Variable, 4),
 	}
 
-	//{
-	//	for i := 0; i < len(proofStr); i++ {
-	//		aggCircuit.Proof[i] = big.NewInt(0)
-	//	}
-	//	aggCircuit.VerifyInst[0] = big.NewInt(0)
-	//	for i := 0; i < len(auxStr); i++ {
-	//		aggCircuit.Aux[i] = big.NewInt(0)
-	//	}
-	//	aggCircuit.TargetInst[0] = big.NewInt(0)
-	//	aggCircuit.TargetInst[1] = big.NewInt(0)
-	//	aggCircuit.TargetInst[2] = big.NewInt(0)
-	//	aggCircuit.TargetInst[3] = big.NewInt(0)
-	//}
-
 	r1cs, err := frontend.Compile(ecc.BN254.ScalarField(), r1cs.NewBuilder, &aggCircuit)
 	if err != nil {
 		panic(err)
@@ -177,47 +164,47 @@ func main() {
 	//	panic(err)
 	//}
 
-	pk, vk, err := groth16.Setup(r1cs)
-	if err != nil {
-		panic(err)
-	}
+	//pk, vk, err := groth16.Setup(r1cs)
+	//if err != nil {
+	//	panic(err)
+	//}
+	//
+	//fpk, err := os.Create("groth16_pk")
+	//if err != nil {
+	//	log.Fatalln(err)
+	//}
+	//_, err = pk.WriteRawTo(fpk)
+	//if err != nil {
+	//	log.Fatalln(err)
+	//}
+	//
+	//fvk, err := os.Create("groth16_vk")
+	//if err != nil {
+	//	log.Fatalln(err)
+	//}
+	//_, err = vk.WriteRawTo(fvk)
+	//if err != nil {
+	//	log.Fatalln(err)
+	//}
 
-	fpk, err := os.Create("groth16_pk")
+	fpk, err := os.Open("groth16_pk")
 	if err != nil {
 		log.Fatalln(err)
 	}
-	_, err = pk.WriteRawTo(fpk)
+	pk := groth16.NewProvingKey(ecc.BN254)
+	_, err = pk.ReadFrom(fpk)
 	if err != nil {
 		log.Fatalln(err)
 	}
-
-	fvk, err := os.Create("groth16_vk")
+	fvk, err := os.Open("groth16_vk")
 	if err != nil {
 		log.Fatalln(err)
 	}
-	_, err = vk.WriteRawTo(fvk)
+	vk := groth16.NewVerifyingKey(ecc.BN254)
+	_, err = vk.ReadFrom(fvk)
 	if err != nil {
 		log.Fatalln(err)
 	}
-
-	//fpk, err := os.Open("groth16_pk")
-	//if err != nil {
-	//	log.Fatalln(err)
-	//}
-	//pk := groth16.NewProvingKey(ecc.BN254)
-	//_, err = pk.ReadFrom(fpk)
-	//if err != nil {
-	//	log.Fatalln(err)
-	//}
-	//fvk, err := os.Open("groth16_vk")
-	//if err != nil {
-	//	log.Fatalln(err)
-	//}
-	//vk := groth16.NewVerifyingKey(ecc.BN254)
-	//_, err = vk.ReadFrom(fvk)
-	//if err != nil {
-	//	log.Fatalln(err)
-	//}
 
 	log.Println("end setup")
 
@@ -259,6 +246,16 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
+	proofJSON, _ := json.MarshalIndent(proof, "", "    ")
+	_ = os.WriteFile("gnark_proof.json", proofJSON, 0644)
+	fProof, err := os.Create("proof")
+	if err != nil {
+		log.Fatalln(err)
+	}
+	_, err = proof.WriteRawTo(fProof)
+	if err != nil {
+		log.Fatalln(err)
+	}
 
 	log.Println("end proof")
 
@@ -269,6 +266,21 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
+	s, err := frontend.NewSchema(&witnessCircuit)
+	if err != nil {
+		panic(err)
+	}
+	publicWitnessJSON, err := publicWitness.ToJSON(s)
+	_ = os.WriteFile("gnark_inputs.json", publicWitnessJSON, 0644)
+	fPublic, err := os.Create("public")
+	if err != nil {
+		log.Fatalln(err)
+	}
+	_, err = publicWitness.WriteTo(fPublic)
+	if err != nil {
+		log.Fatalln(err)
+	}
+
 	err = groth16.Verify(proof, vk, publicWitness)
 	if err != nil {
 		panic(err)

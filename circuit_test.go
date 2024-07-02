@@ -2,9 +2,13 @@ package main
 
 import (
 	"fmt"
+	"github.com/consensys/gnark/backend/groth16"
+	"github.com/consensys/gnark/backend/witness"
 	"github.com/consensys/gnark/frontend"
 	"github.com/consensys/gnark/frontend/cs/r1cs"
+	"log"
 	"math/big"
+	"os"
 	"testing"
 
 	"github.com/consensys/gnark-crypto/ecc"
@@ -98,4 +102,46 @@ func TestCircuitCompile(t *testing.T) {
 
 	_, err := frontend.Compile(ecc.BN254.ScalarField(), r1cs.NewBuilder, &witnessCircuit)
 	grkAssert.NoError(err)
+}
+
+func TestVerify(t *testing.T) {
+	fp, err := os.Open("proof")
+	if err != nil {
+		log.Fatalln(err)
+	}
+	proof := groth16.NewProof(ecc.BN254)
+	_, err = proof.ReadFrom(fp)
+	if err != nil {
+		log.Fatalln(err)
+	}
+
+	fpRaw, err := os.Create("proof_raw")
+	if err != nil {
+		log.Fatalln(err)
+	}
+	_, err = proof.WriteRawTo(fpRaw)
+	if err != nil {
+		log.Fatalln(err)
+	}
+
+	fPublic, err := os.Open("public")
+	if err != nil {
+		log.Fatalln(err)
+	}
+	PWitness, err := witness.New(ecc.BN254.ScalarField())
+	_, err = PWitness.ReadFrom(fPublic)
+	if err != nil {
+		log.Fatalln(err)
+	}
+
+	log.Println(PWitness)
+
+	//fPubRaw, err := os.Create("public_raw")
+	//if err != nil {
+	//	log.Fatalln(err)
+	//}
+	//_, err = PWitness.ToJSON()
+	//if err != nil {
+	//	log.Fatalln(err)
+	//}
 }

@@ -70,7 +70,6 @@ func Sha256Hint(_ *big.Int, inputs []*big.Int, results []*big.Int) error {
 	inputBytes = append(inputBytes, inputs[0].FillBytes(make([]byte, 16))[0:16]...)
 	inputBytes = append(inputBytes, inputs[1].FillBytes(make([]byte, 16))[0:16]...)
 	for i := 2; i < len(inputs); i++ {
-		//log.Println("absorbing", absorbing[i].(*big.Int).String())
 		res := inputs[i].FillBytes(make([]byte, 32))
 		inputBytes = append(inputBytes, res[:]...)
 	}
@@ -79,8 +78,6 @@ func Sha256Hint(_ *big.Int, inputs []*big.Int, results []*big.Int) error {
 
 	results[0] = new(big.Int).SetBytes(ethHashVal[0:16])
 	results[1] = new(big.Int).SetBytes(ethHashVal[16:])
-
-	//log.Println("inputBytes", ethHashVal)
 
 	i := 2
 	for _, bigByte := range ethHashVal {
@@ -252,7 +249,7 @@ func VerifyNotZero(api frontend.API, x frontend.Variable) error {
 }
 
 type RangeCheckCircuit struct {
-	X   frontend.Variable `gnark:",public"` // 待检查的变量
+	X   frontend.Variable `gnark:",public"`
 	Min frontend.Variable
 	Max frontend.Variable
 }
@@ -274,7 +271,6 @@ func SqueezeChallenge(
 	// need to split to ethHashVal[0:16], ethHashVal[16:] to store into absorbing[0] absorbing[1]
 	resLen := 32*(length) + 1 + 2
 	absorbing[length] = new(big.Int).SetUint64(0)
-	//log.Println("absorbing[0] start", absorbing[0])
 	result, err := api.Compiler().NewHint(Sha256Hint, resLen, absorbing[0:length]...)
 	if err != nil {
 		return nil, err
