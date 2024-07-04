@@ -10,7 +10,8 @@ import (
 	"github.com/consensys/gnark-crypto/ecc"
 	"github.com/consensys/gnark/backend/plonk"
 	"github.com/consensys/gnark/frontend"
-	"github.com/consensys/gnark/frontend/cs/r1cs"
+	//"github.com/consensys/gnark/frontend/cs/r1cs"
+	"github.com/consensys/gnark/frontend/cs/scs"
 	//"github.com/consensys/gnark/test/unsafekzg"
 	"gnark-halo2-verify/circuit"
 )
@@ -23,7 +24,7 @@ func main() {
 		TargetInst: make([]frontend.Variable, 4),
 	}
 
-	cs, err := frontend.Compile(ecc.BN254.ScalarField(), r1cs.NewBuilder, &aggCircuit)
+	cs, err := frontend.Compile(ecc.BN254.ScalarField(), scs.NewBuilder, &aggCircuit)
 	if err != nil {
 		panic(err)
 	}
