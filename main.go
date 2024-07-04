@@ -4,6 +4,7 @@ package main
 import (
 	"encoding/json"
 	"github.com/consensys/gnark/backend/groth16"
+	"github.com/consensys/gnark/constraint"
 	"github.com/consensys/gnark/frontend/cs/r1cs"
 	"log"
 	"math/big"
@@ -144,49 +145,39 @@ var auxStr = []string{
 	"3463577479225820485259091635911438981879890436416880517300289494200649237722",
 }
 
-func main() {
-	var aggCircuit = AggregatorCircuit{
-		Proof:      make([]frontend.Variable, len(proofStr)),
-		VerifyInst: make([]frontend.Variable, 1),
-		Aux:        make([]frontend.Variable, len(auxStr)),
-		TargetInst: make([]frontend.Variable, 4),
-	}
-
-	r1cs, err := frontend.Compile(ecc.BN254.ScalarField(), r1cs.NewBuilder, &aggCircuit)
-	if err != nil {
-		panic(err)
-	}
-
-	log.Println("start setup")
-
+func generatePkVk(r1cs constraint.ConstraintSystem) (groth16.ProvingKey, groth16.VerifyingKey) {
 	//srs, srsLagrange, err := unsafekzg.NewSRS(r1cs)
 	//if err != nil {
 	//	panic(err)
 	//}
 
-	//pk, vk, err := groth16.Setup(r1cs)
-	//if err != nil {
-	//	panic(err)
-	//}
-	//
-	//fpk, err := os.Create("groth16_pk")
-	//if err != nil {
-	//	log.Fatalln(err)
-	//}
-	//_, err = pk.WriteRawTo(fpk)
-	//if err != nil {
-	//	log.Fatalln(err)
-	//}
-	//
-	//fvk, err := os.Create("groth16_vk")
-	//if err != nil {
-	//	log.Fatalln(err)
-	//}
-	//_, err = vk.WriteRawTo(fvk)
-	//if err != nil {
-	//	log.Fatalln(err)
-	//}
+	pk, vk, err := groth16.Setup(r1cs)
+	if err != nil {
+		panic(err)
+	}
 
+	fpk, err := os.Create("groth16_pk")
+	if err != nil {
+		log.Fatalln(err)
+	}
+	_, err = pk.WriteRawTo(fpk)
+	if err != nil {
+		log.Fatalln(err)
+	}
+
+	fvk, err := os.Create("groth16_vk")
+	if err != nil {
+		log.Fatalln(err)
+	}
+	_, err = vk.WriteRawTo(fvk)
+	if err != nil {
+		log.Fatalln(err)
+	}
+
+	return pk, vk
+}
+
+func readPkVk() (groth16.ProvingKey, groth16.VerifyingKey) {
 	fpk, err := os.Open("groth16_pk")
 	if err != nil {
 		log.Fatalln(err)
@@ -205,6 +196,27 @@ func main() {
 	if err != nil {
 		log.Fatalln(err)
 	}
+	return pk, vk
+}
+
+func main() {
+	var aggCircuit = AggregatorCircuit{
+		Proof:      make([]frontend.Variable, len(proofStr)),
+		VerifyInst: make([]frontend.Variable, 1),
+		Aux:        make([]frontend.Variable, len(auxStr)),
+		TargetInst: make([]frontend.Variable, 4),
+	}
+
+	cs, err := frontend.Compile(ecc.BN254.ScalarField(), r1cs.NewBuilder, &aggCircuit)
+	if err != nil {
+		panic(err)
+	}
+
+	log.Println("start setup")
+
+	pk, vk := generatePkVk(cs)
+
+	//pk, vk := readPkVk()
 
 	log.Println("end setup")
 
@@ -233,6 +245,7 @@ func main() {
 	witnessCircuit.TargetInst[1] = target1
 	witnessCircuit.TargetInst[2] = target2
 	witnessCircuit.TargetInst[3] = target3
+	witnessCircuit.ProgramHash = new(big.Int).Mod(PackUInt64BigInt(target0, target1, target2, target3), MODULUS)
 
 	witness, err := frontend.NewWitness(&witnessCircuit, ecc.BN254.ScalarField())
 	if err != nil {
@@ -242,7 +255,7 @@ func main() {
 	log.Println("start proof")
 
 	// 2. Proof creation
-	proof, err := groth16.Prove(r1cs, pk, witness)
+	proof, err := groth16.Prove(cs, pk, witness)
 	if err != nil {
 		panic(err)
 	}

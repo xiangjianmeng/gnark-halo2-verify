@@ -86,6 +86,8 @@ func TestCircuit(t *testing.T) {
 	witnessCircuit.TargetInst[2] = target2
 	witnessCircuit.TargetInst[3] = target3
 
+	witnessCircuit.ProgramHash = new(big.Int).Mod(PackUInt64BigInt(target0, target1, target2, target3), MODULUS)
+
 	err := test.IsSolved(&witnessCircuit, &witnessCircuit, ecc.BN254.ScalarField())
 	grkAssert.NoError(err)
 }

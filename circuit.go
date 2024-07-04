@@ -11,13 +11,17 @@ import (
 )
 
 type AggregatorCircuit struct {
-	Proof      []frontend.Variable
-	VerifyInst []frontend.Variable
-	Aux        []frontend.Variable
-	TargetInst []frontend.Variable `gnark:",public"`
+	Proof       []frontend.Variable
+	VerifyInst  []frontend.Variable
+	Aux         []frontend.Variable
+	TargetInst  []frontend.Variable
+	ProgramHash frontend.Variable `gnark:",public"`
 }
 
 func (circuit *AggregatorCircuit) Define(api frontend.API) error {
+	hash := PackUInt64Variables(api, circuit.TargetInst...)
+	api.AssertIsEqual(hash, circuit.ProgramHash)
+
 	buf := [43]frontend.Variable{}
 	for i := 0; i < 43; i++ {
 		buf[i] = new(big.Int).SetUint64(0)

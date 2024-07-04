@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/consensys/gnark-crypto/ecc/bn254/fp"
+	"github.com/consensys/gnark/backend"
 	"github.com/consensys/gnark/std/algebra/emulated/sw_bn254"
 	"github.com/consensys/gnark/std/algebra/emulated/sw_emulated"
 	"github.com/consensys/gnark/std/math/emulated"
@@ -97,6 +98,8 @@ func TestMsmSolve(t *testing.T) {
 
 	err := test.IsSolved(&circuit, &witnessCircuit, ecc.BN254.ScalarField())
 	assert.NoError(err)
+
+	assert.CheckCircuit(&circuit, test.WithValidAssignment(&witnessCircuit), test.WithBackends(backend.GROTH16), test.WithCurves(ecc.BN254))
 
 	r1cs, err := frontend.Compile(ecc.BN254.ScalarField(), r1cs.NewBuilder, &circuit)
 	if err != nil {
@@ -452,7 +455,7 @@ func TestSqueezeChallenge(t *testing.T) {
 }
 
 func TestMod(t *testing.T) {
-	x, _ := new(big.Int).SetString("21147276235438245106538451154094232271190030085887596632745409482267565260819", 10)
+	x, _ := new(big.Int).SetString("44315041545553034122491409635321104951107058073086806778626159225312234132547", 10)
 	//y, _ := new(big.Int).SetString("147946756881789318990833708069417712964", 10)
 	//log.Println(y.Add(y, MODULUS))
 

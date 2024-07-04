@@ -21,6 +21,24 @@ func PackUInt8BigInt(inputs ...*big.Int) *big.Int {
 	return res
 }
 
+func PackUInt64BigInt(inputs ...*big.Int) *big.Int {
+	res := inputs[0]
+	for _, input := range inputs[1:] {
+		res = new(big.Int).Mul(res, new(big.Int).Exp(big.NewInt(2), big.NewInt(64), nil))
+		res = new(big.Int).Add(res, input)
+	}
+	return res
+}
+
+func PackUInt64Variables(api frontend.API, inputs ...frontend.Variable) frontend.Variable {
+	res := inputs[0]
+	for _, input := range inputs[1:] {
+		res = api.Mul(res, new(big.Int).Exp(big.NewInt(2), big.NewInt(64), nil))
+		res = api.Add(res, input)
+	}
+	return res
+}
+
 func PackUInt8Variables(api frontend.API, inputs ...frontend.Variable) frontend.Variable {
 	res := inputs[0]
 	for _, input := range inputs[1:] {
