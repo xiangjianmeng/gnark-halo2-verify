@@ -8,7 +8,7 @@ import (
 	"os"
 
 	"github.com/consensys/gnark-crypto/ecc"
-	"github.com/consensys/gnark/backend/groth16"
+	"github.com/consensys/gnark/backend/plonk"
 	"github.com/consensys/gnark/frontend"
 	"github.com/consensys/gnark/frontend/cs/r1cs"
 	//"github.com/consensys/gnark/test/unsafekzg"
@@ -30,9 +30,10 @@ func main() {
 
 	log.Println("start setup")
 
-	pk, vk := circuit.GenerateGrowth16PkVk(cs)
-
+	//pk, vk := circuit.GenerateGrowth16PkVk(cs)
 	//pk, vk := ReadGrowth16PkVk()
+
+	pk, vk := circuit.GeneratePlonkPkVk(cs)
 
 	log.Println("end setup")
 
@@ -71,7 +72,7 @@ func main() {
 	log.Println("start proof")
 
 	// 2. Proof creation
-	proof, err := groth16.Prove(cs, pk, witness)
+	proof, err := plonk.Prove(cs, pk, witness)
 	if err != nil {
 		panic(err)
 	}
@@ -110,7 +111,7 @@ func main() {
 		log.Fatalln(err)
 	}
 
-	err = groth16.Verify(proof, vk, publicWitness)
+	err = plonk.Verify(proof, vk, publicWitness)
 	if err != nil {
 		panic(err)
 	}
