@@ -1,16 +1,173 @@
-package main
+package circuit
 
 import (
 	"encoding/hex"
 	"fmt"
+	"log"
 	"math/big"
+	"os"
 	"regexp"
 	"strings"
 
+	"github.com/consensys/gnark-crypto/ecc"
+	"github.com/consensys/gnark/backend/groth16"
+	"github.com/consensys/gnark/backend/plonk"
+	"github.com/consensys/gnark/constraint"
 	"github.com/consensys/gnark/frontend"
 	"github.com/consensys/gnark/std/algebra/emulated/sw_emulated"
 	"github.com/consensys/gnark/std/math/emulated"
+	"github.com/consensys/gnark/test/unsafekzg"
 )
+
+type ProofType int
+
+const (
+	Unknown ProofType = iota
+	Groth16
+	Plonk
+)
+
+const (
+	Groth16PkName        = "./data/groth16_pk"
+	Groth16VkName        = "./data/groth16_vk"
+	PlonkPkName          = "./data/plonk_pk"
+	PlonkVkName          = "./data/plonk_vk"
+	PlonkSrsName         = "./data/plonk_srs"
+	PlonkSrsLagrangeName = "./data/plonk_srsLagrange"
+	ProofJsonName        = "./data/proof.json"
+	ProofName            = "./data/proof"
+	InputsJsonName       = "./data/inputs.json"
+	InputsName           = "./data/inputs"
+	ContractName         = "./data/contract_verify.sol"
+)
+
+func ProofTypeToString(s ProofType) string {
+	switch s {
+	case Groth16:
+		return fmt.Sprintf("Groth16")
+	case Plonk:
+		return fmt.Sprintf("Plonk")
+	default:
+		log.Fatalf("unknown proof type %d", s)
+	}
+	return "Groth16"
+}
+
+func GeneratePlonkPkVk(cs constraint.ConstraintSystem) (plonk.ProvingKey, plonk.VerifyingKey) {
+	srs, srsLagrange, err := unsafekzg.NewSRS(cs)
+	if err != nil {
+		panic(err)
+	}
+	fSrs, err := os.Create(PlonkSrsName)
+	if err != nil {
+		log.Fatalln(err)
+	}
+	_, err = srs.WriteRawTo(fSrs)
+	if err != nil {
+		log.Fatalln(err)
+	}
+
+	fSrsLagrange, err := os.Create(PlonkSrsLagrangeName)
+	if err != nil {
+		log.Fatalln(err)
+	}
+	_, err = srs.WriteRawTo(fSrsLagrange)
+	if err != nil {
+		log.Fatalln(err)
+	}
+	pk, vk, err := plonk.Setup(cs, srs, srsLagrange)
+
+	fpk, err := os.Create(PlonkPkName)
+	if err != nil {
+		log.Fatalln(err)
+	}
+	_, err = pk.WriteRawTo(fpk)
+	if err != nil {
+		log.Fatalln(err)
+	}
+
+	fvk, err := os.Create(PlonkVkName)
+	if err != nil {
+		log.Fatalln(err)
+	}
+	_, err = vk.WriteRawTo(fvk)
+	if err != nil {
+		log.Fatalln(err)
+	}
+
+	return pk, vk
+}
+
+func ReadPlonkPkVk() (plonk.ProvingKey, plonk.VerifyingKey) {
+	fpk, err := os.Open(PlonkPkName)
+	if err != nil {
+		log.Fatalln(err)
+	}
+	pk := plonk.NewProvingKey(ecc.BN254)
+	_, err = pk.ReadFrom(fpk)
+	if err != nil {
+		log.Fatalln(err)
+	}
+	fvk, err := os.Open(PlonkVkName)
+	if err != nil {
+		log.Fatalln(err)
+	}
+	vk := plonk.NewVerifyingKey(ecc.BN254)
+	_, err = vk.ReadFrom(fvk)
+	if err != nil {
+		log.Fatalln(err)
+	}
+	return pk, vk
+}
+
+func GenerateGrowth16PkVk(cs constraint.ConstraintSystem) (groth16.ProvingKey, groth16.VerifyingKey) {
+	pk, vk, err := groth16.Setup(cs)
+	if err != nil {
+		panic(err)
+	}
+
+	fpk, err := os.Create(Groth16PkName)
+	if err != nil {
+		log.Fatalln(err)
+	}
+	_, err = pk.WriteRawTo(fpk)
+	if err != nil {
+		log.Fatalln(err)
+	}
+
+	fvk, err := os.Create(Groth16VkName)
+	if err != nil {
+		log.Fatalln(err)
+	}
+	_, err = vk.WriteRawTo(fvk)
+	if err != nil {
+		log.Fatalln(err)
+	}
+
+	return pk, vk
+}
+
+func ReadGrowth16PkVk() (groth16.ProvingKey, groth16.VerifyingKey) {
+	fpk, err := os.Open(Groth16PkName)
+	if err != nil {
+		log.Fatalln(err)
+	}
+	pk := groth16.NewProvingKey(ecc.BN254)
+	_, err = pk.ReadFrom(fpk)
+	if err != nil {
+		log.Fatalln(err)
+	}
+	fvk, err := os.Open(Groth16VkName)
+	if err != nil {
+		log.Fatalln(err)
+	}
+	vk := groth16.NewVerifyingKey(ecc.BN254)
+	_, err = vk.ReadFrom(fvk)
+	if err != nil {
+		log.Fatalln(err)
+	}
+	return pk, vk
+}
 
 func PackUInt8BigInt(inputs ...*big.Int) *big.Int {
 	res := inputs[0]

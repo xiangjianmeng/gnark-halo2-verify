@@ -1,17 +1,17 @@
-package main
+package circuit
 
 import (
 	"fmt"
-	"github.com/consensys/gnark/backend/groth16"
-	"github.com/consensys/gnark/backend/witness"
-	"github.com/consensys/gnark/frontend"
-	"github.com/consensys/gnark/frontend/cs/r1cs"
 	"log"
 	"math/big"
 	"os"
 	"testing"
 
 	"github.com/consensys/gnark-crypto/ecc"
+	"github.com/consensys/gnark/backend/groth16"
+	"github.com/consensys/gnark/backend/witness"
+	"github.com/consensys/gnark/frontend"
+	"github.com/consensys/gnark/frontend/cs/r1cs"
 	"github.com/consensys/gnark/test"
 	"github.com/ethereum/go-ethereum/crypto"
 	//"github.com/consensys/gnark/std/hash/sha3"
@@ -61,20 +61,20 @@ func TestCircuit(t *testing.T) {
 	grkAssert := test.NewAssert(t)
 
 	var witnessCircuit = AggregatorCircuit{
-		Proof:      make([]frontend.Variable, len(proofStr)),
+		Proof:      make([]frontend.Variable, len(ProofStr)),
 		VerifyInst: make([]frontend.Variable, 1),
-		Aux:        make([]frontend.Variable, len(auxStr)),
+		Aux:        make([]frontend.Variable, len(AuxStr)),
 		TargetInst: make([]frontend.Variable, 4),
 	}
 
-	for i := 0; i < len(proofStr); i++ {
-		proof, _ := big.NewInt(0).SetString(proofStr[i], 10)
+	for i := 0; i < len(ProofStr); i++ {
+		proof, _ := big.NewInt(0).SetString(ProofStr[i], 10)
 		witnessCircuit.Proof[i] = proof
 	}
 	verifyIns, _ := big.NewInt(0).SetString("10573525131658455000365299935369648652552518565632155338390913030155084554858", 10)
 	witnessCircuit.VerifyInst[0] = verifyIns
-	for i := 0; i < len(auxStr); i++ {
-		aux, _ := big.NewInt(0).SetString(auxStr[i], 10)
+	for i := 0; i < len(AuxStr); i++ {
+		aux, _ := big.NewInt(0).SetString(AuxStr[i], 10)
 		witnessCircuit.Aux[i] = aux
 	}
 	target0, _ := big.NewInt(0).SetString("7059793422771910484", 10)
@@ -96,9 +96,9 @@ func TestCircuitCompile(t *testing.T) {
 	grkAssert := test.NewAssert(t)
 
 	var witnessCircuit = AggregatorCircuit{
-		Proof:      make([]frontend.Variable, len(proofStr)),
+		Proof:      make([]frontend.Variable, len(ProofStr)),
 		VerifyInst: make([]frontend.Variable, 1),
-		Aux:        make([]frontend.Variable, len(auxStr)),
+		Aux:        make([]frontend.Variable, len(AuxStr)),
 		TargetInst: make([]frontend.Variable, 4),
 	}
 

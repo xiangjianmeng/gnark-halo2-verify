@@ -1,4 +1,4 @@
-package main
+package circuit
 
 import (
 	"encoding/json"
@@ -350,7 +350,7 @@ func TestHexToBase(t *testing.T) {
 		"10696824190703641741008737755241846718268731271095825424278589440469985414304",
 	}
 
-	buf := make([]*big.Int, len(proofStr))
+	buf := make([]*big.Int, len(ProofStr))
 	for i := 0; i < len(bufStr); i++ {
 		buf[i], _ = new(big.Int).SetString(bufStr[i], 10)
 		log.Println(buf[i].String())
