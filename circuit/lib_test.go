@@ -101,7 +101,7 @@ func TestMsmSolve(t *testing.T) {
 
 	assert.CheckCircuit(&circuit, test.WithValidAssignment(&witnessCircuit), test.WithBackends(backend.GROTH16), test.WithCurves(ecc.BN254))
 
-	r1cs, err := frontend.Compile(ecc.BN254.ScalarField(), r1cs.NewBuilder, &circuit)
+	r1cs, err := frontend.Compile(ecc.BN254.ScalarField(), r1cs.NewBuilder, &circuit, frontend.IgnoreUnconstrainedInputs())
 	if err != nil {
 		log.Fatalf("Failed to compile circuit: %v", err)
 	}
@@ -116,7 +116,7 @@ func TestMsmSolve(t *testing.T) {
 		panic(err)
 	}
 
-	proof, err := groth16.Prove(r1cs, pk, witness)
+	proof, err := groth16.Prove(r1cs, pk, witness, backend.WithProverHashToFieldFunction(sha256.New()))
 	if err != nil {
 		log.Fatalf("Failed to create proof: %v", err)
 	}
@@ -153,7 +153,7 @@ func TestMsmSolve(t *testing.T) {
 		log.Fatalln(err)
 	}
 
-	if err := groth16.Verify(proof, vk, public); err != nil {
+	if err := groth16.Verify(proof, vk, public, backend.WithVerifierHashToFieldFunction(sha256.New())); err != nil {
 		log.Fatalf("Failed to verify proof: %v", err)
 	}
 
