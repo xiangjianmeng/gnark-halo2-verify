@@ -2,7 +2,9 @@
 package main
 
 import (
+	"crypto/sha256"
 	"encoding/json"
+	"github.com/consensys/gnark/backend"
 	"log"
 	"math/big"
 	"os"
@@ -23,7 +25,7 @@ func main() {
 		TargetInst: make([]frontend.Variable, 4),
 	}
 
-	cs, err := frontend.Compile(ecc.BN254.ScalarField(), r1cs.NewBuilder, &aggCircuit)
+	cs, err := frontend.Compile(ecc.BN254.ScalarField(), r1cs.NewBuilder, &aggCircuit, frontend.IgnoreUnconstrainedInputs())
 	if err != nil {
 		panic(err)
 	}
@@ -71,7 +73,7 @@ func main() {
 	log.Println("start proof")
 
 	// 2. Proof creation
-	proof, err := groth16.Prove(cs, pk, witness)
+	proof, err := groth16.Prove(cs, pk, witness, backend.WithProverHashToFieldFunction(sha256.New()))
 	if err != nil {
 		panic(err)
 	}
@@ -110,7 +112,7 @@ func main() {
 		log.Fatalln(err)
 	}
 
-	err = groth16.Verify(proof, vk, publicWitness)
+	err = groth16.Verify(proof, vk, publicWitness, backend.WithVerifierHashToFieldFunction(sha256.New()))
 	if err != nil {
 		panic(err)
 	}
