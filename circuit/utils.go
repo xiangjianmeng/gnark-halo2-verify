@@ -71,7 +71,7 @@ func GeneratePlonkPkVk(cs constraint.ConstraintSystem) (plonk.ProvingKey, plonk.
 	if err != nil {
 		log.Fatalln(err)
 	}
-	_, err = srs.WriteRawTo(fSrsLagrange)
+	_, err = srsLagrange.WriteRawTo(fSrsLagrange)
 	if err != nil {
 		log.Fatalln(err)
 	}
