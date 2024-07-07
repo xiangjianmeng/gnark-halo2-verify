@@ -2,10 +2,8 @@
 package main
 
 import (
-	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
-	"github.com/consensys/gnark/backend"
 	"log"
 	"math/big"
 	"os"
@@ -77,7 +75,7 @@ func main() {
 	log.Println("start proof")
 
 	// 2. Proof creation
-	proof, err := plonk.Prove(cs, pk, witness, backend.WithProverHashToFieldFunction(sha256.New()))
+	proof, err := plonk.Prove(cs, pk, witness)
 	if err != nil {
 		panic(err)
 	}
@@ -123,7 +121,7 @@ func main() {
 		log.Fatalln(err)
 	}
 
-	err = plonk.Verify(proof, vk, publicWitness, backend.WithVerifierHashToFieldFunction(sha256.New()))
+	err = plonk.Verify(proof, vk, publicWitness)
 	if err != nil {
 		panic(err)
 	}

@@ -1,6 +1,7 @@
 package circuit
 
 import (
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"github.com/consensys/gnark-crypto/ecc/bn254/fp"
@@ -9,7 +10,6 @@ import (
 	"github.com/consensys/gnark/std/algebra/emulated/sw_emulated"
 	"github.com/consensys/gnark/std/math/emulated"
 	"github.com/consensys/gnark/std/math/emulated/emparams"
-	"github.com/ethereum/go-ethereum/common/hexutil"
 	"log"
 	"math/big"
 	"os"
@@ -121,6 +121,13 @@ func TestMsmSolve(t *testing.T) {
 	if err != nil {
 		log.Fatalf("Failed to create proof: %v", err)
 	}
+	_proof, ok := proof.(interface{ MarshalSolidity() []byte })
+	if !ok {
+		panic("proof does not implement MarshalSolidity()")
+	}
+	proofStr := hex.EncodeToString(_proof.MarshalSolidity())
+	log.Println("MarshalSolidity: ", proofStr)
+
 	proofJSON, _ := json.MarshalIndent(proof, "", "    ")
 	_ = os.WriteFile("gnark_proof_test.json", proofJSON, 0644)
 	fProof, err := os.Create("proof_test")
@@ -464,18 +471,18 @@ func TestMod(t *testing.T) {
 }
 
 func TestBigInt(t *testing.T) {
-	proofData, err := os.ReadFile("./proof")
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	log.Println(hexutil.Encode(proofData))
-
-	proofRes := dataToU256(proofData, 256, 4)
+	//proofData, err := os.ReadFile("./proof")
+	//if err != nil {
+	//	log.Fatal(err)
+	//}
+	//
+	//log.Println(hexutil.Encode(proofData))
+	//
+	//proofRes := dataToU256(proofData, 256, 4)
 	//if len(proofRes) != 12 {
 	//	panic("invalid proof")
 	//}
-	log.Println(proofRes)
+	//log.Println(proofRes)
 	//fmt.Print("[")
 	//for i := 0; i < 8; i++ {
 	//	fmt.Print(proofRes[i].String())
