@@ -9,6 +9,7 @@ import (
 	"github.com/consensys/gnark/std/algebra/emulated/sw_emulated"
 	"github.com/consensys/gnark/std/math/emulated"
 	"github.com/consensys/gnark/std/math/emulated/emparams"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	"log"
 	"math/big"
 	"os"
@@ -463,43 +464,46 @@ func TestMod(t *testing.T) {
 }
 
 func TestBigInt(t *testing.T) {
-	proofData, err := os.ReadFile("../data/proof")
+	proofData, err := os.ReadFile("./proof")
 	if err != nil {
 		log.Fatal(err)
 	}
+
+	log.Println(hexutil.Encode(proofData))
 
 	proofRes := dataToU256(proofData, 256, 4)
 	//if len(proofRes) != 12 {
 	//	panic("invalid proof")
 	//}
-	fmt.Print("[")
-	for i := 0; i < 8; i++ {
-		fmt.Print(proofRes[i].String())
-		if i != 7 {
-			fmt.Print(",")
-		}
-	}
-	fmt.Print("]\n")
+	log.Println(proofRes)
+	//fmt.Print("[")
+	//for i := 0; i < 8; i++ {
+	//	fmt.Print(proofRes[i].String())
+	//	if i != 7 {
+	//		fmt.Print(",")
+	//	}
+	//}
+	//fmt.Print("]\n")
+	//
+	//fmt.Print("[")
+	//for i := 8; i < 10; i++ {
+	//	fmt.Print(proofRes[i].String())
+	//	if i != 9 {
+	//		fmt.Print(",")
+	//	}
+	//}
+	//fmt.Print("]\n")
+	//
+	//fmt.Print("[")
+	//for i := 10; i < 12; i++ {
+	//	fmt.Print(proofRes[i].String())
+	//	if i != 11 {
+	//		fmt.Print(",")
+	//	}
+	//}
+	//fmt.Print("]\n")
 
-	fmt.Print("[")
-	for i := 8; i < 10; i++ {
-		fmt.Print(proofRes[i].String())
-		if i != 9 {
-			fmt.Print(",")
-		}
-	}
-	fmt.Print("]\n")
-
-	fmt.Print("[")
-	for i := 10; i < 12; i++ {
-		fmt.Print(proofRes[i].String())
-		if i != 11 {
-			fmt.Print(",")
-		}
-	}
-	fmt.Print("]\n")
-
-	pubData, err := os.ReadFile("../data/inputs")
+	pubData, err := os.ReadFile("./inputs")
 	if err != nil {
 		log.Fatal(err)
 	}

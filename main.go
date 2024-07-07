@@ -3,6 +3,7 @@ package main
 
 import (
 	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"github.com/consensys/gnark/backend"
 	"log"
@@ -36,7 +37,8 @@ func main() {
 	//pk, vk := circuit.GenerateGrowth16PkVk(cs)
 	//pk, vk := ReadGrowth16PkVk()
 
-	pk, vk := circuit.GeneratePlonkPkVk(cs)
+	//pk, vk := circuit.GeneratePlonkPkVk(cs)
+	pk, vk := circuit.ReadPlonkPkVk()
 
 	log.Println("end setup")
 
@@ -79,6 +81,13 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
+	_proof, ok := proof.(interface{ MarshalSolidity() []byte })
+	if !ok {
+		panic("proof does not implement MarshalSolidity()")
+	}
+	proofStr := hex.EncodeToString(_proof.MarshalSolidity())
+	log.Println(proofStr)
+
 	proofJSON, _ := json.MarshalIndent(proof, "", "    ")
 	_ = os.WriteFile(circuit.ProofJsonName, proofJSON, 0644)
 	fProof, err := os.Create(circuit.ProofName)
