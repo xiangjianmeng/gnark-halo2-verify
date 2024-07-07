@@ -463,7 +463,7 @@ func TestMod(t *testing.T) {
 }
 
 func TestBigInt(t *testing.T) {
-	proofData, err := os.ReadFile("proof_test")
+	proofData, err := os.ReadFile("../data/proof")
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -499,7 +499,7 @@ func TestBigInt(t *testing.T) {
 	}
 	fmt.Print("]\n")
 
-	pubData, err := os.ReadFile("public_test")
+	pubData, err := os.ReadFile("../data/inputs")
 	if err != nil {
 		log.Fatal(err)
 	}
