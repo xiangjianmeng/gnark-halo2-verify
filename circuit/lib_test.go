@@ -123,12 +123,12 @@ func TestMsmSolve(t *testing.T) {
 	}
 
 	// 2. setup
-	log.Println("start setup")
+	log.Println("[Start] setup")
 	pk, vk, err := concreteBackend.Setup(ccs, curveID)
 	if err != nil {
 		panic(err)
 	}
-	log.Println("end setup")
+	log.Println("[End] setup")
 
 	var proverOpts []backend.ProverOption
 	var verifierOpts []backend.VerifierOption
