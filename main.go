@@ -2,22 +2,29 @@
 package main
 
 import (
-	"encoding/hex"
+	"crypto/sha256"
 	"encoding/json"
+	"github.com/consensys/gnark/backend"
+	"github.com/consensys/gnark/backend/solidity"
+	gnarkio "github.com/consensys/gnark/io"
 	"log"
 	"math/big"
 	"os"
 
 	"github.com/consensys/gnark-crypto/ecc"
-	"github.com/consensys/gnark/backend/plonk"
 	"github.com/consensys/gnark/frontend"
-	//"github.com/consensys/gnark/frontend/cs/r1cs"
-	"github.com/consensys/gnark/frontend/cs/scs"
+
 	//"github.com/consensys/gnark/test/unsafekzg"
 	"gnark-halo2-verify/circuit"
 )
 
 func main() {
+	var (
+		backendID       = backend.GROTH16
+		curveID         = ecc.BN254
+		concreteBackend circuit.Backend
+	)
+
 	var aggCircuit = circuit.AggregatorCircuit{
 		Proof:      make([]frontend.Variable, len(circuit.ProofStr)),
 		VerifyInst: make([]frontend.Variable, 1),
@@ -25,21 +32,7 @@ func main() {
 		TargetInst: make([]frontend.Variable, 4),
 	}
 
-	cs, err := frontend.Compile(ecc.BN254.ScalarField(), scs.NewBuilder, &aggCircuit, frontend.IgnoreUnconstrainedInputs())
-	if err != nil {
-		panic(err)
-	}
-
-	log.Println("start setup")
-
-	//pk, vk := circuit.GenerateGrowth16PkVk(cs)
-	//pk, vk := ReadGrowth16PkVk()
-
-	//pk, vk := circuit.GeneratePlonkPkVk(cs)
-	pk, vk := circuit.ReadPlonkPkVk()
-
-	log.Println("end setup")
-
+	// 3a. Fill witness and instance
 	var witnessCircuit = circuit.AggregatorCircuit{
 		Proof:      make([]frontend.Variable, len(circuit.ProofStr)),
 		VerifyInst: make([]frontend.Variable, 1),
@@ -67,41 +60,67 @@ func main() {
 	witnessCircuit.TargetInst[3] = target3
 	witnessCircuit.ProgramHash = new(big.Int).Mod(circuit.PackUInt64BigInt(target0, target1, target2, target3), circuit.MODULUS)
 
-	witness, err := frontend.NewWitness(&witnessCircuit, ecc.BN254.ScalarField())
+	// 1. compile
+	log.Println("[Start] Compile")
+	ccs, err := circuit.Compile(&aggCircuit, curveID, backendID, []frontend.CompileOption{frontend.IgnoreUnconstrainedInputs()})
 	if err != nil {
 		panic(err)
 	}
+	log.Println("[End] Compile")
 
-	log.Println("start proof")
+	switch backendID {
+	case backend.GROTH16:
+		concreteBackend = circuit.GrothBackend
+	case backend.PLONK:
+		concreteBackend = circuit.PlonkBackend
+	default:
+		panic("backend not implemented")
+	}
 
-	// 2. Proof creation
-	proof, err := plonk.Prove(cs, pk, witness)
+	// 2. setup
+	log.Println("[Start] setup")
+	pk, vk, err := concreteBackend.Setup(ccs, curveID)
 	if err != nil {
 		panic(err)
 	}
-	_proof, ok := proof.(interface{ MarshalSolidity() []byte })
-	if !ok {
-		panic("proof does not implement MarshalSolidity()")
-	}
-	proofStr := hex.EncodeToString(_proof.MarshalSolidity())
-	log.Println(proofStr)
+	log.Println("[End] setup")
 
+	var proverOpts []backend.ProverOption
+	var verifierOpts []backend.VerifierOption
+	if backendID == backend.GROTH16 {
+		// additionally, we use sha256 as hash to field (fixed in Solidity contract)
+		proverOpts = append(proverOpts, backend.WithProverHashToFieldFunction(sha256.New()))
+		verifierOpts = append(verifierOpts, backend.WithVerifierHashToFieldFunction(sha256.New()))
+	}
+
+	// 3. Generate witness
+	witness, err := frontend.NewWitness(&witnessCircuit, curveID.ScalarField())
+	if err != nil {
+		log.Fatalln(err)
+	}
+
+	// 4. Generate Proof
+	log.Println("[Start] prove")
+	proof, err := concreteBackend.Prove(ccs, pk, witness, proverOpts...)
+	if err != nil {
+		log.Fatalln(err)
+	}
 	proofJSON, _ := json.MarshalIndent(proof, "", "    ")
-	_ = os.WriteFile(circuit.ProofJsonName, proofJSON, 0644)
-	fProof, err := os.Create(circuit.ProofName)
+	_ = os.WriteFile("gnark_proof.json", proofJSON, 0644)
+	fProof, err := os.Create("proof")
 	if err != nil {
 		log.Fatalln(err)
 	}
-	_, err = proof.WriteRawTo(fProof)
+	_, err = proof.(gnarkio.WriterRawTo).WriteRawTo(fProof)
 	if err != nil {
 		log.Fatalln(err)
 	}
 
-	log.Println("end proof")
+	log.Println("[End] proof")
 
-	log.Println("start verify")
+	// 5. Verify Proof
+	log.Println("[Start] verify")
 
-	// 3. Proof verification
 	publicWitness, err := witness.Public()
 	if err != nil {
 		panic(err)
@@ -111,8 +130,8 @@ func main() {
 		panic(err)
 	}
 	publicWitnessJSON, err := publicWitness.ToJSON(s)
-	_ = os.WriteFile(circuit.InputsJsonName, publicWitnessJSON, 0644)
-	fPublic, err := os.Create(circuit.InputsName)
+	_ = os.WriteFile("gnark_inputs.json", publicWitnessJSON, 0644)
+	fPublic, err := os.Create("public")
 	if err != nil {
 		log.Fatalln(err)
 	}
@@ -121,19 +140,11 @@ func main() {
 		log.Fatalln(err)
 	}
 
-	err = plonk.Verify(proof, vk, publicWitness)
+	err = concreteBackend.Verify(proof, vk, publicWitness, verifierOpts...)
 	if err != nil {
 		panic(err)
 	}
+	log.Println("[End] verify")
 
-	f, err := os.Create(circuit.ContractName)
-	if err != nil {
-		log.Fatalln(err)
-	}
-	err = vk.ExportSolidity(f)
-	if err != nil {
-		log.Fatalln(err)
-	}
-
-	log.Println("end verify")
+	circuit.SolidityVerification(backendID, vk.(solidity.VerifyingKey), proof, publicWitness, nil)
 }

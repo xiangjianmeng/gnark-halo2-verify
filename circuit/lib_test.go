@@ -1,15 +1,8 @@
 package circuit
 
 import (
-	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"github.com/consensys/gnark-crypto/ecc/bn254/fp"
-	"github.com/consensys/gnark/backend"
-	"github.com/consensys/gnark/std/algebra/emulated/sw_bn254"
-	"github.com/consensys/gnark/std/algebra/emulated/sw_emulated"
-	"github.com/consensys/gnark/std/math/emulated"
-	"github.com/consensys/gnark/std/math/emulated/emparams"
 	"log"
 	"math/big"
 	"os"
@@ -18,9 +11,17 @@ import (
 	"crypto/sha256"
 	"github.com/consensys/gnark-crypto/ecc"
 	"github.com/consensys/gnark-crypto/ecc/bn254"
+	"github.com/consensys/gnark-crypto/ecc/bn254/fp"
+	"github.com/consensys/gnark/backend"
 	"github.com/consensys/gnark/backend/groth16"
+	"github.com/consensys/gnark/backend/solidity"
 	"github.com/consensys/gnark/frontend"
 	"github.com/consensys/gnark/frontend/cs/r1cs"
+	gnarkio "github.com/consensys/gnark/io"
+	"github.com/consensys/gnark/std/algebra/emulated/sw_bn254"
+	"github.com/consensys/gnark/std/algebra/emulated/sw_emulated"
+	"github.com/consensys/gnark/std/math/emulated"
+	"github.com/consensys/gnark/std/math/emulated/emparams"
 	"github.com/consensys/gnark/std/math/uints"
 	"github.com/consensys/gnark/test"
 	"github.com/ethereum/go-ethereum/crypto"
@@ -79,10 +80,6 @@ func TestMsmSolve(t *testing.T) {
 	assert.True(point.IsOnCurve())
 	var res1 bn254.G1Affine
 	res1.ScalarMultiplication(&point, scalar)
-	//assert.Equal(resCircuit, res1)
-
-	//var u fr.Element
-	//scalarEle := u.SetBigInt(scalar)
 
 	witnessCircuit := TestBN254ScalarMul{
 		Point: sw_bn254.G1Affine{
@@ -102,80 +99,99 @@ func TestMsmSolve(t *testing.T) {
 
 	assert.CheckCircuit(&circuit, test.WithValidAssignment(&witnessCircuit), test.WithBackends(backend.GROTH16), test.WithCurves(ecc.BN254))
 
-	r1cs, err := frontend.Compile(ecc.BN254.ScalarField(), r1cs.NewBuilder, &circuit, frontend.IgnoreUnconstrainedInputs())
-	if err != nil {
-		log.Fatalf("Failed to compile circuit: %v", err)
-	}
+	var (
+		backendID       = backend.GROTH16
+		curveID         = ecc.BN254
+		concreteBackend Backend
+	)
 
-	pk, vk, err := groth16.Setup(r1cs)
-	if err != nil {
-		log.Fatalf("Failed to setup keys: %v", err)
-	}
-
-	witness, err := frontend.NewWitness(&witnessCircuit, ecc.BN254.ScalarField())
+	// 1. compile
+	log.Println("[Start] Compile")
+	ccs, err := Compile(&circuit, curveID, backendID, []frontend.CompileOption{frontend.IgnoreUnconstrainedInputs()})
 	if err != nil {
 		panic(err)
 	}
+	log.Println("[End] Compile")
 
-	proof, err := groth16.Prove(r1cs, pk, witness, backend.WithProverHashToFieldFunction(sha256.New()))
+	switch backendID {
+	case backend.GROTH16:
+		concreteBackend = GrothBackend
+	case backend.PLONK:
+		concreteBackend = PlonkBackend
+	default:
+		panic("backend not implemented")
+	}
+
+	// 2. setup
+	log.Println("start setup")
+	pk, vk, err := concreteBackend.Setup(ccs, curveID)
 	if err != nil {
-		log.Fatalf("Failed to create proof: %v", err)
+		panic(err)
 	}
-	_proof, ok := proof.(interface{ MarshalSolidity() []byte })
-	if !ok {
-		panic("proof does not implement MarshalSolidity()")
-	}
-	proofStr := hex.EncodeToString(_proof.MarshalSolidity())
-	log.Println("MarshalSolidity: ", proofStr)
+	log.Println("end setup")
 
+	var proverOpts []backend.ProverOption
+	var verifierOpts []backend.VerifierOption
+	if backendID == backend.GROTH16 {
+		// additionally, we use sha256 as hash to field (fixed in Solidity contract)
+		proverOpts = append(proverOpts, backend.WithProverHashToFieldFunction(sha256.New()))
+		verifierOpts = append(verifierOpts, backend.WithVerifierHashToFieldFunction(sha256.New()))
+	}
+
+	// 3. Generate witness
+	witness, err := frontend.NewWitness(&witnessCircuit, curveID.ScalarField())
+	if err != nil {
+		log.Fatalln(err)
+	}
+
+	// 4. Generate Proof
+	log.Println("[Start] prove")
+	proof, err := concreteBackend.Prove(ccs, pk, witness, proverOpts...)
+	if err != nil {
+		log.Fatalln(err)
+	}
 	proofJSON, _ := json.MarshalIndent(proof, "", "    ")
-	_ = os.WriteFile("gnark_proof_test.json", proofJSON, 0644)
-	fProof, err := os.Create("proof_test")
+	_ = os.WriteFile("gnark_proof.json", proofJSON, 0644)
+	fProof, err := os.Create("proof")
 	if err != nil {
 		log.Fatalln(err)
 	}
-	_, err = proof.WriteRawTo(fProof)
+	_, err = proof.(gnarkio.WriterRawTo).WriteRawTo(fProof)
 	if err != nil {
 		log.Fatalln(err)
 	}
 
-	public, err := witness.Public()
+	log.Println("[End] proof")
+
+	// 5. Verify Proof
+	log.Println("[Start] verify")
+
+	publicWitness, err := witness.Public()
 	if err != nil {
-		log.Fatalf("Failed to Public: %v", err)
+		panic(err)
 	}
 	s, err := frontend.NewSchema(&witnessCircuit)
 	if err != nil {
 		panic(err)
 	}
-	publicWitnessJSON, err := public.ToJSON(s)
+	publicWitnessJSON, err := publicWitness.ToJSON(s)
+	_ = os.WriteFile("gnark_inputs.json", publicWitnessJSON, 0644)
+	fPublic, err := os.Create("public")
+	if err != nil {
+		log.Fatalln(err)
+	}
+	_, err = publicWitness.WriteTo(fPublic)
+	if err != nil {
+		log.Fatalln(err)
+	}
+
+	err = concreteBackend.Verify(proof, vk, publicWitness, verifierOpts...)
 	if err != nil {
 		panic(err)
 	}
-	_ = os.WriteFile("gnark_inputs_test.json", publicWitnessJSON, 0644)
-	fPublic, err := os.Create("public_test")
-	if err != nil {
-		log.Fatalln(err)
-	}
-	_, err = public.WriteTo(fPublic)
-	if err != nil {
-		log.Fatalln(err)
-	}
+	log.Println("[End] verify")
 
-	if err := groth16.Verify(proof, vk, public, backend.WithVerifierHashToFieldFunction(sha256.New())); err != nil {
-		log.Fatalf("Failed to verify proof: %v", err)
-	}
-
-	f, err := os.Create("contract_groth16_test.sol")
-	if err != nil {
-		log.Fatalln(err)
-	}
-	err = vk.ExportSolidity(f)
-	if err != nil {
-		log.Fatalln(err)
-	}
-
-	//err = test.IsSolved(&circuit, &witnessCircuit, ecc.BN254.ScalarField())
-	assert.NoError(err)
+	SolidityVerification(backendID, vk.(solidity.VerifyingKey), proof, publicWitness, nil)
 }
 
 type SimpleCircuit struct {
